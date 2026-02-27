@@ -240,7 +240,7 @@ export default function CartScreen() {
                         Your next great story starts here. Browse experiences and add them to your cart!
                     </Text>
                     <TouchableOpacity
-                        onPress={() => router.push('/(tabs)/')}
+                        onPress={() => router.push('/')}
                         className="mt-10 bg-[#002b5c] dark:bg-[#58a6ff] px-10 py-4 rounded-full shadow-md"
                     >
                         <Text className="text-white font-bold text-lg">Start Exploring</Text>
@@ -260,6 +260,7 @@ export default function CartScreen() {
                     onClose={() => setIsBookingFlowVisible(false)}
                     experience={cartSummaryExperience}
                     selectedDate={cartItems[0]?.date || new Date().toISOString()}
+                    selectedTime={cartItems[0]?.timeSlot || null}
                 />
             )}
         </View>

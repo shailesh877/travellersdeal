@@ -118,6 +118,19 @@ const VendorDashboard = () => {
         });
     };
 
+    const formatDateTime = (dateValue) => {
+        if (!dateValue) return 'N/A';
+        const date = new Date(dateValue);
+        if (isNaN(date.getTime())) return 'Invalid Date';
+        return date.toLocaleString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit'
+        });
+    };
+
     if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div></div>;
 
     return (
@@ -213,7 +226,8 @@ const VendorDashboard = () => {
                                             <tr>
                                                 <th className="px-6 py-4">Experience</th>
                                                 <th className="px-6 py-4">Customer</th>
-                                                <th className="px-6 py-4">Date</th>
+                                                <th className="px-6 py-4">Date & Time</th>
+                                                <th className="px-6 py-4">Guests</th>
                                                 <th className="px-6 py-4">Amount</th>
                                                 <th className="px-6 py-4">Status</th>
                                             </tr>
@@ -223,10 +237,17 @@ const VendorDashboard = () => {
                                                 <tr key={booking._id} className="hover:bg-white transition-colors">
                                                     <td className="px-6 py-4 font-medium text-gray-900">{booking.experience?.title}</td>
                                                     <td className="px-6 py-4 text-gray-600">{booking.user?.name}</td>
-                                                    <td className="px-6 py-4 text-gray-500">{formatDate(booking.date)}</td>
+                                                    <td className="px-6 py-4">
+                                                        <div className="text-[10px] text-gray-400 font-semibold mb-0.5" title="Booking placed on">
+                                                            Booked: {formatDateTime(booking.createdAt)}
+                                                        </div>
+                                                        <div className="text-gray-900 font-medium">{formatDate(booking.date)}</div>
+                                                        {booking.timeSlot && <div className="text-xs text-blue-600 font-semibold mt-0.5">{booking.timeSlot}</div>}
+                                                    </td>
+                                                    <td className="px-6 py-4 text-gray-700">{booking.slots} Person(s)</td>
                                                     <td className="px-6 py-4 font-bold text-gray-900">${booking.totalPrice}</td>
                                                     <td className="px-6 py-4">
-                                                        <span className={`px - 2 py - 1 rounded - full text - xs font - bold uppercase ${getStatusColor(booking.status)} `}>
+                                                        <span className={`px-2 py-1 rounded-full text-xs font-bold uppercase ${getStatusColor(booking.status)}`}>
                                                             {booking.status}
                                                         </span>
                                                     </td>
@@ -246,7 +267,7 @@ const VendorDashboard = () => {
                 {activeTab === 'experiences' && (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {experiences.map(exp => (
-                            <div key={exp._id} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow group">
+                            <div key={exp._id} className={`bg-white rounded-2xl shadow-sm border overflow-hidden hover:shadow-md transition-shadow group ${exp.status === 'rejected' ? 'border-red-200' : exp.status === 'pending' ? 'border-yellow-200' : 'border-gray-100'}`}>
                                 <div className="relative h-48 overflow-hidden">
                                     <img
                                         src={exp.images[0] ? (exp.images[0].startsWith('http') ? exp.images[0] : `${API_URL.replace('/api', '')}${exp.images[0]}`) : 'https://placehold.co/600x400'}
@@ -259,10 +280,34 @@ const VendorDashboard = () => {
                                     <div className="absolute top-4 left-4 bg-black/50 backdrop-blur-sm text-white px-3 py-1 rounded-full text-xs font-bold">
                                         {exp.category}
                                     </div>
+                                    {/* ✅ Admin Review Status Badge */}
+                                    <div className="absolute bottom-3 left-3">
+                                        {exp.status === 'approved' && (
+                                            <span className="bg-green-500 text-white text-[10px] font-black px-2 py-1 rounded-full uppercase tracking-wider flex items-center gap-1"><FaCheck className="text-[8px]" /> Live</span>
+                                        )}
+                                        {exp.status === 'pending' && (
+                                            <span className="bg-yellow-400 text-yellow-900 text-[10px] font-black px-2 py-1 rounded-full uppercase tracking-wider">⏳ Under Review</span>
+                                        )}
+                                        {exp.status === 'rejected' && (
+                                            <span className="bg-red-500 text-white text-[10px] font-black px-2 py-1 rounded-full uppercase tracking-wider flex items-center gap-1"><FaTimes className="text-[8px]" /> Rejected</span>
+                                        )}
+                                    </div>
                                 </div>
                                 <div className="p-6">
                                     <h3 className="font-bold text-lg text-gray-900 mb-2 line-clamp-1">{exp.title}</h3>
-                                    <p className="text-gray-500 text-sm mb-4 line-clamp-2">{exp.description}</p>
+                                    <p className="text-gray-500 text-sm mb-3 line-clamp-2">{exp.description}</p>
+
+                                    {/* Status Notice Banner */}
+                                    {exp.status === 'pending' && (
+                                        <div className="mb-4 bg-yellow-50 border border-yellow-200 text-yellow-800 text-xs px-3 py-2 rounded-lg font-medium">
+                                            ⏳ Waiting for admin approval before going live.
+                                        </div>
+                                    )}
+                                    {exp.status === 'rejected' && (
+                                        <div className="mb-4 bg-red-50 border border-red-200 text-red-700 text-xs px-3 py-2 rounded-lg font-medium">
+                                            ❌ This experience was rejected by admin. Please edit and re-submit.
+                                        </div>
+                                    )}
 
                                     <div className="flex items-center gap-4 text-xs text-gray-400 mb-6">
                                         <div className="flex items-center gap-1"><FaCalendarAlt /> {exp.duration}</div>
@@ -296,8 +341,8 @@ const VendorDashboard = () => {
                                         <th className="px-6 py-4">Booking ID</th>
                                         <th className="px-6 py-4">Experience</th>
                                         <th className="px-6 py-4">Customer</th>
-                                        <th className="px-6 py-4">Date</th>
-                                        <th className="px-6 py-4">Slots</th>
+                                        <th className="px-6 py-4">Date & Time</th>
+                                        <th className="px-6 py-4">Guests</th>
                                         <th className="px-6 py-4">Total</th>
                                         <th className="px-6 py-4">Status</th>
                                         <th className="px-6 py-4 text-right">Actions</th>
@@ -312,11 +357,17 @@ const VendorDashboard = () => {
                                                 <div className="text-sm font-medium text-gray-900">{booking.user?.name}</div>
                                                 <div className="text-xs text-gray-400">{booking.user?.email}</div>
                                             </td>
-                                            <td className="px-6 py-4 text-gray-500">{formatDate(booking.date)}</td>
-                                            <td className="px-6 py-4 text-gray-700">{booking.slots}</td>
+                                            <td className="px-6 py-4">
+                                                <div className="text-[10px] text-gray-400 font-semibold mb-0.5" title="Booking placed on">
+                                                    Booked: {formatDateTime(booking.createdAt)}
+                                                </div>
+                                                <div className="text-gray-900 font-medium">{formatDate(booking.date)}</div>
+                                                {booking.timeSlot && <div className="text-xs text-blue-600 font-semibold mt-0.5">{booking.timeSlot}</div>}
+                                            </td>
+                                            <td className="px-6 py-4 text-gray-700">{booking.slots} Person(s)</td>
                                             <td className="px-6 py-4 font-bold text-gray-900">${booking.totalPrice}</td>
                                             <td className="px-6 py-4">
-                                                <span className={`px - 2 py - 1 rounded - full text - xs font - bold uppercase ${getStatusColor(booking.status)} `}>
+                                                <span className={`px-2 py-1 rounded-full text-xs font-bold uppercase ${getStatusColor(booking.status)}`}>
                                                     {booking.status}
                                                 </span>
                                             </td>

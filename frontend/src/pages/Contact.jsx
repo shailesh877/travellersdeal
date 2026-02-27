@@ -22,7 +22,7 @@ const Contact = () => {
     };
 
     return (
-        <div className="container mx-auto px-4 py-12 max-w-6xl">
+        <div className="container mx-auto px-4 py-12 pt-24 md:pt-28 max-w-6xl">
             <h1 className="text-4xl font-bold text-center mb-12 text-gray-800">Contact Us</h1>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-12">

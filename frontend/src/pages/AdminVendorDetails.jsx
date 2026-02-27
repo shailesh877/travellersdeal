@@ -171,7 +171,11 @@ const AdminVendorDetails = () => {
 
                             <div className="divide-y divide-gray-100">
                                 {experiences.map(exp => (
-                                    <div key={exp._id} className="p-4 hover:bg-gray-50 flex gap-4 transition-colors">
+                                    <div
+                                        key={exp._id}
+                                        onClick={() => navigate(`/admin/experience/${exp._id}`)}
+                                        className="p-4 hover:bg-gray-50 flex gap-4 transition-colors cursor-pointer"
+                                    >
                                         <div className="w-16 h-16 rounded-lg bg-gray-200 overflow-hidden flex-shrink-0">
                                             {exp.images && exp.images[0] ? (
                                                 <img src={exp.images[0]} alt="" className="w-full h-full object-cover" />
@@ -180,7 +184,7 @@ const AdminVendorDetails = () => {
                                             )}
                                         </div>
                                         <div className="flex-grow">
-                                            <h4 className="font-bold text-gray-900">{exp.title}</h4>
+                                            <h4 className="font-bold text-gray-900 group-hover:text-primary transition-colors">{exp.title}</h4>
                                             <p className="text-sm text-gray-500 line-clamp-1">{exp.description}</p>
                                             <div className="flex gap-3 mt-2 text-xs">
                                                 <span className="font-medium text-primary bg-primary/10 px-2 py-0.5 rounded">{exp.category}</span>

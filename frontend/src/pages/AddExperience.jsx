@@ -3,6 +3,38 @@ import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 import { API_URL } from '../config/api';
 import { FaCloudUploadAlt, FaPlus, FaTrash, FaMapMarkerAlt, FaClock, FaLanguage, FaListUl, FaSuitcase, FaUserSlash, FaCheck, FaDollarSign, FaCalendarAlt, FaInfoCircle, FaUsers, FaUtensils } from 'react-icons/fa';
+import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
+
+// Fix for default Leaflet icon not showing correctly in React/Vite
+import icon from 'leaflet/dist/images/marker-icon.png';
+import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+let DefaultIcon = L.icon({
+    iconUrl: icon,
+    shadowUrl: iconShadow,
+    iconAnchor: [12, 41]
+});
+L.Marker.prototype.options.icon = DefaultIcon;
+
+const LocationPicker = ({ position, setPosition }) => {
+    useMapEvents({
+        click(e) {
+            setPosition({ lat: e.latlng.lat, lng: e.latlng.lng });
+        },
+    });
+    return position && position.lat && position.lng ? <Marker position={position} /> : null;
+};
+
+const MapUpdater = ({ coordinates }) => {
+    const map = useMap();
+    useEffect(() => {
+        if (coordinates && !isNaN(coordinates.lat) && !isNaN(coordinates.lng)) {
+            map.flyTo([coordinates.lat, coordinates.lng], map.getZoom(), { duration: 0.5 });
+        }
+    }, [coordinates.lat, coordinates.lng, map]);
+    return null;
+};
 
 const AddExperience = () => {
     const navigate = useNavigate();
@@ -16,10 +48,11 @@ const AddExperience = () => {
         price: '',
         currency: 'USD',
         duration: '',
-        location: { city: '', country: '' },
+        location: { city: '', country: '', coordinates: { lat: 25.2048, lng: 55.2708 } },
         images: [],
         highlights: [],
         itinerary: [],
+        itineraryMap: '',
         includes: [],
         knowBeforeYouGo: [],
         meetingPoint: '',
@@ -54,11 +87,13 @@ const AddExperience = () => {
                         duration: data.duration || '',
                         location: {
                             city: data.location?.city || '',
-                            country: data.location?.country || ''
+                            country: data.location?.country || '',
+                            coordinates: data.location?.coordinates || { lat: 25.2048, lng: 55.2708 }
                         },
                         images: data.images || [],
                         highlights: data.highlights || [],
                         itinerary: data.itinerary || [],
+                        itineraryMap: data.itineraryMap || '',
                         includes: data.includes || [],
                         knowBeforeYouGo: data.knowBeforeYouGo || [],
                         meetingPoint: data.meetingPoint || '',
@@ -304,6 +339,77 @@ const AddExperience = () => {
                                             required
                                         />
                                     </div>
+                                </div>
+                            </div>
+
+                            <div className="mt-6 border-t border-gray-100 pt-6">
+                                <label className="block text-base font-bold text-gray-800 mb-4 flex items-center gap-2">
+                                    <FaMapMarkerAlt className="text-primary" /> Pinpoint Location
+                                </label>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                    <div>
+                                        <label className="block text-sm font-semibold text-gray-700 mb-2">Latitude</label>
+                                        <input
+                                            type="number"
+                                            step="any"
+                                            value={formData.location.coordinates.lat || ''}
+                                            onChange={(e) => setFormData(prev => ({ ...prev, location: { ...prev.location, coordinates: { ...prev.location.coordinates, lat: parseFloat(e.target.value) } } }))}
+                                            className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                                            placeholder="e.g. 25.2048"
+                                            required
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-semibold text-gray-700 mb-2">Longitude</label>
+                                        <input
+                                            type="number"
+                                            step="any"
+                                            value={formData.location.coordinates.lng || ''}
+                                            onChange={(e) => setFormData(prev => ({ ...prev, location: { ...prev.location, coordinates: { ...prev.location.coordinates, lng: parseFloat(e.target.value) } } }))}
+                                            className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                                            placeholder="e.g. 55.2708"
+                                            required
+                                        />
+                                    </div>
+                                </div>
+                                <div className="mb-4">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            if (navigator.geolocation) {
+                                                navigator.geolocation.getCurrentPosition(
+                                                    (position) => {
+                                                        const { latitude, longitude } = position.coords;
+                                                        setFormData(prev => ({ ...prev, location: { ...prev.location, coordinates: { lat: latitude, lng: longitude } } }));
+                                                    },
+                                                    (error) => {
+                                                        alert("Error fetching location. Please ensure you have given browser permissions.");
+                                                    }
+                                                );
+                                            } else {
+                                                alert("Geolocation is not supported by your browser.");
+                                            }
+                                        }}
+                                        className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold py-2 px-4 rounded-lg text-sm transition-colors border border-gray-200"
+                                    >
+                                        <FaMapMarkerAlt className="text-blue-500" /> Fetch Current Location
+                                    </button>
+                                </div>
+
+                                <p className="text-xs text-gray-500 mb-3">Or click anywhere on the map to drop a pin at the exact location.</p>
+                                <div className="h-[400px] w-full rounded-xl overflow-hidden border border-gray-300 z-10 relative shadow-inner">
+                                    <MapContainer center={[formData.location.coordinates.lat || 25.2048, formData.location.coordinates.lng || 55.2708]} zoom={11} className="h-full w-full">
+                                        <TileLayer
+                                            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                                            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                                        />
+                                        <LocationPicker
+                                            position={formData.location.coordinates}
+                                            setPosition={(newPos) => setFormData(prev => ({ ...prev, location: { ...prev.location, coordinates: newPos } }))}
+                                        />
+                                        <MapUpdater coordinates={formData.location.coordinates} />
+                                    </MapContainer>
                                 </div>
                             </div>
                         </div>

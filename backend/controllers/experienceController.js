@@ -155,6 +155,8 @@ const createExperience = async (req, res) => {
             dietaryOptions,
             capacity,
             vendor: req.user._id,
+            status: 'pending',
+            isActive: false,
         });
 
         const createdExperience = await experience.save();
@@ -174,6 +176,12 @@ const updateExperience = async (req, res) => {
         if (experience) {
             if (experience.vendor.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
                 return res.status(401).json({ message: 'Not authorized to update this experience' });
+            }
+
+            // Save snapshot before changes
+            if (req.user.role === 'vendor' && experience.status === 'approved') {
+                experience.lastApprovedSnapshot = experience.toObject();
+                experience.markModified('lastApprovedSnapshot');
             }
 
             experience.title = req.body.title || experience.title;
@@ -197,6 +205,11 @@ const updateExperience = async (req, res) => {
             experience.privateGroup = req.body.privateGroup !== undefined ? req.body.privateGroup : experience.privateGroup;
             experience.dietaryOptions = req.body.dietaryOptions || experience.dietaryOptions;
             experience.capacity = req.body.capacity || experience.capacity;
+
+            // Set back to pending if edited by vendor
+            if (req.user.role === 'vendor') {
+                experience.status = 'pending';
+            }
 
             const updatedExperience = await experience.save();
             res.json(updatedExperience);

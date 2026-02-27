@@ -25,18 +25,10 @@ if (process.env.NODE_ENV !== 'production') {
   app.use(morgan('dev'));
 }
 
-// Rate Limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per windowMs
-  message: 'Too many requests from this IP, please try again after 15 minutes'
-});
-app.use(limiter);
-
 // General Middleware
 app.use(express.json());
 
-// CORS Configuration
+// CORS Configuration (Must be before Rate Limiting)
 const corsOptions = {
   origin: process.env.NODE_ENV === 'production'
     ? ['https://travellersdeal.com', 'http://localhost:3000', 'http://localhost:5173', 'null'] // Production frontend + local dev + mobile
@@ -44,6 +36,14 @@ const corsOptions = {
   credentials: true,
 };
 app.use(cors(corsOptions));
+
+// Rate Limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: process.env.NODE_ENV === 'production' ? 100 : 5000, // Higher limit for dev HMR
+  message: 'Too many requests from this IP, please try again after 15 minutes'
+});
+app.use(limiter);
 
 // Database Connection
 mongoose.connect(process.env.MONGO_URI)
@@ -64,6 +64,7 @@ const adminRoutes = require('./routes/adminRoutes');
 const reviewRoutes = require('./routes/reviewRoutes');
 const userRoutes = require('./routes/userRoutes');
 const cartRoutes = require('./routes/cartRoutes');
+const homepageRoutes = require('./routes/homepageRoutes');
 const path = require('path');
 
 app.use('/api/auth', authRoutes);
@@ -75,6 +76,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/reviews', reviewRoutes); // Reviews
 app.use('/api/users', userRoutes);
 app.use('/api/cart', cartRoutes);
+app.use('/api/homepage', homepageRoutes);
 
 
 // Use __dirname for consistent path resolution regardless of CWD
@@ -90,6 +92,6 @@ app.use('/uploadsbyvenders', express.static(vendorUploadsPath));
 // Error Handling Middleware
 app.use(errorHandler);
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server running on port ${PORT} (0.0.0.0)`);
 });

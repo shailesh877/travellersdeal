@@ -2,14 +2,29 @@ import React, { useState, useEffect, useContext } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { API_URL } from '../config/api';
-import { FaStar, FaMapMarkerAlt, FaClock, FaCheck, FaInfoCircle, FaCalendarAlt, FaUserFriends, FaGlobe, FaMobileAlt, FaTimes, FaUtensils } from 'react-icons/fa';
+import { FaStar, FaMapMarkerAlt, FaClock, FaCheck, FaInfoCircle, FaCalendarAlt, FaUserFriends, FaGlobe, FaMobileAlt, FaTimes, FaUtensils, FaHeart, FaShoppingCart } from 'react-icons/fa';
 import { AuthContext } from '../context/AuthContext';
+import { CartContext } from '../context/CartContext';
+import { MapContainer, TileLayer, Marker } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
+
+import icon from 'leaflet/dist/images/marker-icon.png';
+import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+let DefaultIcon = L.icon({
+    iconUrl: icon,
+    shadowUrl: iconShadow,
+    iconAnchor: [12, 41]
+});
+L.Marker.prototype.options.icon = DefaultIcon;
 
 const ExperienceDetail = () => {
     const { id } = useParams();
     const navigate = useNavigate();
     const location = useLocation();
     const { user } = useContext(AuthContext);
+    const { addToCart, loading: cartLoading } = useContext(CartContext);
+    const [cartMsg, setCartMsg] = useState('');
 
     const [experience, setExperience] = useState(null);
     const [reviews, setReviews] = useState([]);
@@ -18,6 +33,7 @@ const ExperienceDetail = () => {
     const [guests, setGuests] = useState(1);
     const [date, setDate] = useState('');
     const [timeSlot, setTimeSlot] = useState('');
+    const [language, setLanguage] = useState('English');
 
     const [reviewRating, setReviewRating] = useState(5);
     const [reviewComment, setReviewComment] = useState('');
@@ -129,6 +145,24 @@ const ExperienceDetail = () => {
         });
     };
 
+    const handleAddToCart = async () => {
+        if (!user) { navigate('/login', { state: { from: location } }); return; }
+        if (!date) { alert('Please select a date first'); return; }
+        const result = await addToCart({
+            experienceId: experience._id,
+            quantity: guests,
+            date,
+            timeSlot: timeSlot || '',
+            priceAtAdd: experience.price,
+        });
+        if (result.success) {
+            setCartMsg('Added to cart!');
+            setTimeout(() => setCartMsg(''), 3000);
+        } else {
+            alert(result.error);
+        }
+    };
+
     if (loading) return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div></div>;
     if (error) return <div className="min-h-screen flex items-center justify-center text-red-500">{error}</div>;
     if (!experience) return <div className="min-h-screen flex items-center justify-center">Experience not found</div>;
@@ -144,11 +178,22 @@ const ExperienceDetail = () => {
 
     const displayCount = reviews.length > 0 ? reviews.length : experience.reviewsCount || 0;
 
+    const dummyItinerary = [
+        { title: 'Starting/pickup location', description: 'Depends on the selected option' },
+        { title: 'Ganges River', description: 'Boat cruise' },
+        { title: 'Manikarnika Ghat, Varanasi', description: 'Guided tour, Sightseeing' },
+        { title: 'Assi ghat', description: 'Guided tour, Sightseeing' },
+        { title: 'Shri Kashi Vishwanath Temple', description: 'Guided tour, Sightseeing' },
+        { title: 'Banaras Hindu University', description: 'Guided tour, Sightseeing' },
+        { title: 'Arrive back at:', description: 'Varanasi' }
+    ];
+    const displayItinerary = experience.itinerary?.length > 0 ? experience.itinerary : dummyItinerary;
+
     return (
-        <div className="bg-white min-h-screen pb-20 font-sans text-gray-800">
+        <div className="bg-white min-h-screen pb-20 pt-20 md:pt-24 font-sans text-gray-800">
             {/* Header / Breadcrumbs Area */}
-            <div className="container mx-auto px-4 pt-28 pb-4">
-                <div className="flex items-center text-xs text-gray-500 mb-2">
+            <div className="max-w-[1240px] mx-auto px-4 md:px-8 pt-4 pb-4">
+                <div className="flex items-center text-xs text-gray-500 mb-4">
                     <span className="hover:underline cursor-pointer">Home</span> <span className="mx-2">›</span>
                     <span className="hover:underline cursor-pointer">{experience.location?.country || 'Country'}</span> <span className="mx-2">›</span>
                     <span className="hover:underline cursor-pointer">{experience.location?.city || 'City'}</span> <span className="mx-2">›</span>
@@ -159,48 +204,52 @@ const ExperienceDetail = () => {
                     <span className="uppercase text-xs font-bold text-red-500 tracking-wider">Originals by Travellers Deal</span>
                 </div>
 
-                <h1 className="text-3xl md:text-5xl font-extrabold text-gray-900 leading-tight mb-4">{experience.title}</h1>
+                <h1 className="text-3xl md:text-4xl font-extrabold text-[#1a2b49] leading-tight mb-4">{experience.title}</h1>
 
-                <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
-                    <div className="flex items-center gap-1 text-yellow-500">
-                        {[...Array(5)].map((_, i) => <FaStar key={i} className={i < Math.floor(displayRating) ? "" : "text-gray-300"} />)}
-                        <span className="font-bold text-gray-900 ml-1">{displayRating}</span>
-                        <span className="text-gray-500 underline decoration-gray-300 underline-offset-2 ml-1 cursor-pointer">({displayCount} reviews)</span>
+                <div className="flex flex-wrap items-center justify-between gap-4 text-sm text-gray-600 mb-4">
+                    <div className="flex items-center gap-4">
+                        <div className="bg-[#1a2b49] text-white text-xs font-bold px-2 py-1 rounded">Top rated</div>
+                        <div className="flex items-center gap-1 text-yellow-500">
+                            {[...Array(5)].map((_, i) => <FaStar key={i} className={i < Math.floor(displayRating) ? "" : "text-gray-300"} />)}
+                            <span className="font-bold text-gray-900 ml-1">{displayRating}</span>
+                            <span className="text-gray-900 underline decoration-gray-900 underline-offset-2 ml-1 cursor-pointer font-medium hover:text-primary hover:decoration-primary transition-colors">{displayCount} reviews</span>
+                        </div>
+                        <span className="hidden md:inline text-gray-300">•</span>
+                        <span className="text-gray-500">Activity provider: <span className="text-gray-900 hover:underline cursor-pointer">Travellers Deal Verified</span></span>
                     </div>
-                    <span className="hidden md:inline">•</span>
-                    <span>Activity provider: <span className="font-medium text-gray-900 underline cursor-pointer">Travellers Deal Verified</span></span>
-                </div>
-            </div>
 
-            {/* Image Gallery Grid */}
-            <div className="container mx-auto px-4 mb-8">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-2 h-[300px] md:h-[450px] rounded-2xl overflow-hidden relative group">
-                    {/* Main Image */}
-                    <div className="md:col-span-2 h-full relative cursor-pointer">
-                        <img src={experience.images?.[0] ? (experience.images[0].startsWith('http') ? experience.images[0] : `${API_URL.replace('/api', '')}${experience.images[0]}`) : 'https://placehold.co/800x600?text=No+Image'} alt={experience.title} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
-                    </div>
-                    {/* Side Images */}
-                    <div className="hidden md:block h-full cursor-pointer">
-                        <img src={experience.images?.[1] ? (experience.images[1].startsWith('http') ? experience.images[1] : `${API_URL.replace('/api', '')}${experience.images[1]}`) : (experience.images?.[0] ? (experience.images[0].startsWith('http') ? experience.images[0] : `${API_URL.replace('/api', '')}${experience.images[0]}`) : 'https://placehold.co/400x300?text=Image+2')} alt="Gallery 2" className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
-                    </div>
-                    <div className="hidden md:flex flex-col gap-2 h-full">
-                        <div className="flex-1 overflow-hidden cursor-pointer">
-                            <img src={experience.images?.[2] ? (experience.images[2].startsWith('http') ? experience.images[2] : `${API_URL.replace('/api', '')}${experience.images[2]}`) : (experience.images?.[0] ? (experience.images[0].startsWith('http') ? experience.images[0] : `${API_URL.replace('/api', '')}${experience.images[0]}`) : 'https://placehold.co/400x300?text=Image+3')} alt="Gallery 3" className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
-                        </div>
-                        <div className="flex-1 overflow-hidden cursor-pointer relative">
-                            <img src={experience.images?.[3] ? (experience.images[3].startsWith('http') ? experience.images[3] : `${API_URL.replace('/api', '')}${experience.images[3]}`) : (experience.images?.[0] ? (experience.images[0].startsWith('http') ? experience.images[0] : `${API_URL.replace('/api', '')}${experience.images[0]}`) : 'https://placehold.co/400x300?text=Image+4')} alt="Gallery 4" className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
-                            <button className="absolute bottom-4 right-4 bg-white px-3 py-1.5 rounded-lg text-sm font-bold shadow-md hover:bg-gray-50 transition-colors flex items-center gap-2">
-                                <FaCalendarAlt /> View photos
-                            </button>
-                        </div>
+                    <div className="flex items-center gap-6">
+                        <button className="flex items-center gap-2 font-bold text-gray-900 hover:text-primary hover:underline transition-colors">
+                            <FaHeart className="text-lg" /> Add to wishlist
+                        </button>
                     </div>
                 </div>
             </div>
 
             {/* Main Content Layout */}
-            <div className="container mx-auto px-4 grid grid-cols-1 lg:grid-cols-3 gap-12">
-                {/* Left Column: Details */}
-                <div className="lg:col-span-2 space-y-10">
+            <div className="max-w-[1240px] mx-auto px-4 md:px-8 grid grid-cols-1 lg:grid-cols-3 gap-8 md:gap-10">
+                {/* Left Column: Image Gallery & Details */}
+                <div className="lg:col-span-2 space-y-8 md:space-y-10">
+
+                    {/* Image Gallery Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2 h-[300px] md:h-[400px] rounded-2xl overflow-hidden relative group">
+                        {/* Main Image */}
+                        <div className="md:col-span-2 h-full relative cursor-pointer">
+                            <img src={experience.images?.[0] ? (experience.images[0].startsWith('http') ? experience.images[0] : `${API_URL.replace('/api', '')}${experience.images[0]}`) : 'https://placehold.co/800x600?text=No+Image'} alt={experience.title} className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
+                        </div>
+                        {/* Right Stacked Images */}
+                        <div className="hidden md:flex flex-col gap-2 h-full">
+                            <div className="flex-1 overflow-hidden cursor-pointer relative">
+                                <img src={experience.images?.[1] ? (experience.images[1].startsWith('http') ? experience.images[1] : `${API_URL.replace('/api', '')}${experience.images[1]}`) : (experience.images?.[0] ? (experience.images[0].startsWith('http') ? experience.images[0] : `${API_URL.replace('/api', '')}${experience.images[0]}`) : 'https://placehold.co/400x300?text=Image+2')} alt="Gallery 2" className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
+                            </div>
+                            <div className="flex-1 overflow-hidden cursor-pointer relative">
+                                <img src={experience.images?.[2] ? (experience.images[2].startsWith('http') ? experience.images[2] : `${API_URL.replace('/api', '')}${experience.images[2]}`) : (experience.images?.[0] ? (experience.images[0].startsWith('http') ? experience.images[0] : `${API_URL.replace('/api', '')}${experience.images[0]}`) : 'https://placehold.co/400x300?text=Image+3')} alt="Gallery 3" className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
+                                <button className="absolute bottom-4 right-4 bg-black/60 backdrop-blur-md text-white px-3 py-1.5 rounded-lg text-sm font-bold shadow-md hover:bg-black/80 transition-colors flex items-center gap-2">
+                                    <FaCalendarAlt /> <span className="tracking-widest">{experience.images?.length > 3 ? experience.images.length : '18'}</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
 
                     {/* About this activity */}
                     <section>
@@ -321,6 +370,65 @@ const ExperienceDetail = () => {
                         </section>
                     )}
 
+                    {/* Itinerary Section */}
+                    {displayItinerary.length > 0 && (
+                        <section className="pt-8 border-t border-gray-100 mt-8">
+                            <h2 className="text-2xl font-bold text-gray-900 mb-6">Itinerary</h2>
+                            <div className="flex flex-col md:flex-row gap-8">
+                                {/* Timeline Column */}
+                                <div className="flex-1">
+                                    <div className="relative">
+                                        {/* The vertical red line */}
+                                        <div className="absolute left-[11px] top-3 bottom-3 w-0.5 bg-red-500 z-0"></div>
+                                        <div className="space-y-7">
+                                            {displayItinerary.map((step, index) => (
+                                                <div key={index} className="relative flex items-start gap-5">
+                                                    <div className="flex items-center justify-center w-6 h-6 rounded-full border-2 border-white bg-[#1a2b49] shadow shrink-0 z-10 mt-0.5">
+                                                        <span className="w-2 h-2 rounded-full bg-white"></span>
+                                                    </div>
+                                                    <div className="flex-1">
+                                                        <h4 className="font-bold text-gray-900 text-base">{step.title || step}</h4>
+                                                        {step.description && <p className="text-sm text-gray-600 mt-0.5">{step.description}</p>}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <div className="mt-8 flex items-start gap-4 text-sm text-gray-500">
+                                        <FaInfoCircle className="mt-1 flex-shrink-0" />
+                                        <p>For reference only. Itineraries are subject to change.</p>
+                                    </div>
+                                </div>
+
+                                {/* Map Column */}
+                                <div className="w-full md:w-1/2">
+                                    <div className="bg-gray-100 rounded-xl overflow-hidden h-[400px] relative sticky top-32 z-0">
+                                        {experience.location?.coordinates?.lat && experience.location?.coordinates?.lng ? (
+                                            <MapContainer
+                                                center={[experience.location.coordinates.lat, experience.location.coordinates.lng]}
+                                                zoom={13}
+                                                className="w-full h-full"
+                                                scrollWheelZoom={false}
+                                            >
+                                                <TileLayer
+                                                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                                                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                                                />
+                                                <Marker position={[experience.location.coordinates.lat, experience.location.coordinates.lng]} />
+                                            </MapContainer>
+                                        ) : (
+                                            <div className="absolute inset-0 bg-blue-50/50 flex flex-col items-center justify-center p-4 text-center">
+                                                <FaMapMarkerAlt className="text-4xl text-red-500 mb-4 drop-shadow-md" />
+                                                <h4 className="font-bold text-gray-900">Interactive Map Overview</h4>
+                                                <p className="text-sm text-gray-500 mt-2">Route mapping for {experience.title}</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+                    )}
+
                     {/* Reviews Section */}
                     <section className="pt-8 border-t border-gray-100">
                         <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
@@ -410,250 +518,151 @@ const ExperienceDetail = () => {
                         </section>
                     )}
 
-                    {/* Check Availability Section (New Premium UI) */}
-                    <section className="pt-8 border-t border-gray-100" id="availability-section">
-                        <h2 className="text-2xl font-bold text-gray-900 mb-6">Check availability</h2>
-
-                        {/* Date Selector Row */}
-                        {/* Date & Participants Selector Row */}
-                        <div className="flex flex-col md:flex-row gap-6 mb-8">
-                            {/* Date Picker */}
-                            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide flex-1">
-                                <div className="flex-shrink-0 w-16 h-20 bg-white border border-gray-200 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-primary transition-colors relative">
-                                    <FaCalendarAlt className="text-gray-700 text-xl mb-1" />
-                                    <input
-                                        type="date"
-                                        className="absolute inset-0 opacity-0 cursor-pointer"
-                                        onChange={(e) => setDate(e.target.value)}
-                                        value={date} // Ensure value is bound
-                                    />
-                                </div>
-                                {[...Array(7)].map((_, i) => {
-                                    const d = new Date();
-                                    d.setDate(d.getDate() + i);
-                                    const dateString = d.toISOString().split('T')[0];
-                                    const isSelected = date === dateString;
-                                    return (
-                                        <div
-                                            key={i}
-                                            onClick={() => setDate(dateString)}
-                                            className={`flex-shrink-0 w-20 h-20 rounded-xl flex flex-col items-center justify-center cursor-pointer border transition-all ${isSelected ? 'bg-primary text-white border-primary shadow-lg ring-2 ring-primary ring-offset-2' : 'bg-white border-gray-200 hover:border-primary text-gray-700 hover:bg-gray-50'}`}
-                                        >
-                                            <span className="text-xs font-medium uppercase">{d.toLocaleDateString('en-US', { weekday: 'short' })}</span>
-                                            <span className="text-xl font-bold">{d.getDate()}</span>
-                                            <span className="text-xs">{d.toLocaleDateString('en-US', { month: 'short' })}</span>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-
-                            {/* Participants Selector */}
-                            <div className="flex-shrink-0 w-full md:w-48 bg-gray-50 rounded-xl border border-gray-200 p-4">
-                                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 block">Participants</label>
-                                <div className="flex items-center justify-between bg-white rounded-lg border border-gray-200 p-2">
-                                    <button
-                                        onClick={() => setGuests(Math.max(1, guests - 1))}
-                                        className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-primary transition-colors font-bold text-lg"
-                                    >-</button>
-                                    <span className="font-bold text-gray-900 text-lg">{guests}</span>
-                                    <button
-                                        onClick={() => setGuests(guests + 1)}
-                                        className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-primary transition-colors font-bold text-lg"
-                                    >+</button>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Options / Time Slots List */}
-                        <h3 className="text-lg font-bold text-gray-900 mb-4">Choose from {experience.timeSlots?.length || 0} options</h3>
-
-                        {!date ? (
-                            <div className="p-8 text-center bg-gray-50 rounded-2xl border border-dashed border-gray-200 text-gray-500">
-                                <FaCalendarAlt className="mx-auto text-3xl mb-2 opacity-50" />
-                                Please select a date to see available times.
-                            </div>
-                        ) : experience.timeSlots?.length > 0 ? (
-                            <div className="space-y-4">
-                                {experience.timeSlots.map((slot, index) => {
-                                    const available = availability[slot] !== undefined ? availability[slot] : experience.capacity;
-                                    const isFull = available <= 0;
-                                    const isSelected = timeSlot === slot;
-
-                                    // Create a specific checkout handler for this card
-                                    const handleBookThisSlot = () => {
-                                        if (!user) {
-                                            navigate('/login', { state: { from: location } });
-                                            return;
-                                        }
-                                        navigate('/checkout', {
-                                            state: {
-                                                amount: experience.price * guests,
-                                                experienceTitle: experience.title,
-                                                currency: experience.currency || 'USD',
-                                                experienceId: experience._id,
-                                                date: date,
-                                                slots: guests,
-                                                timeSlot: slot
-                                            }
-                                        });
-                                    };
-
-                                    return (
-                                        <div
-                                            key={index}
-                                            className={`bg-white border rounded-2xl p-6 transition-all hover:shadow-md ${isSelected ? 'border-primary ring-1 ring-primary' : 'border-gray-200'}`}
-                                        >
-                                            <div className="flex flex-col md:flex-row justify-between gap-6">
-                                                <div className="space-y-3 flex-1">
-                                                    <div>
-                                                        <h4 className="text-xl font-extrabold text-gray-900 mb-1">{slot} {experience.title}</h4>
-                                                        <div className="flex flex-wrap gap-4 text-sm text-gray-600">
-                                                            <div className="flex items-center gap-1.5"><FaClock /> {experience.duration}</div>
-                                                            <div className="flex items-center gap-1.5"><FaUserFriends /> Guide: {experience.languages?.[0] || 'English'}</div>
-                                                        </div>
-                                                    </div>
-
-                                                    {experience.meetingPoint && (
-                                                        <div className="flex items-start gap-2 text-sm text-gray-600">
-                                                            <FaMapMarkerAlt className="mt-1 flex-shrink-0 text-gray-400" />
-                                                            <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(experience.meetingPoint)}`} target="_blank" rel="noopener noreferrer" className="underline hover:text-primary">
-                                                                {experience.meetingPoint}
-                                                            </a>
-                                                        </div>
-                                                    )}
-                                                </div>
-
-                                                <div className="flex flex-row md:flex-col justify-between items-center md:items-end gap-4 min-w-[200px]">
-                                                    <div className="text-right">
-                                                        <div className="text-xs text-gray-500 mb-1">From</div>
-                                                        <div className="text-2xl font-extrabold text-gray-900">{currencySymbol}{experience.price}</div>
-                                                        <div className="text-xs text-gray-500">per person</div>
-                                                    </div>
-
-                                                    <button
-                                                        onClick={handleBookThisSlot}
-                                                        disabled={isFull}
-                                                        className={`w-full md:w-auto px-8 py-3 rounded-xl font-bold transition-all ${isFull ? 'bg-gray-300 cursor-not-allowed shadow-none text-white' : 'bg-primary text-white hover:bg-cyan-600 shadow-lg shadow-cyan-200 transform active:scale-95'}`}
-                                                    >
-                                                        {isFull ? 'Sold Out' : 'Book Now'}
-                                                    </button>
-                                                </div>
-                                            </div>
-
-                                            {/* Footer of Card */}
-                                            <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between text-sm">
-                                                <div className="flex items-center gap-2 text-gray-600">
-                                                    <FaCheck className="text-green-500" /> Free cancellation
-                                                </div>
-                                                {available < 10 && available > 0 && <span className="text-red-500 font-bold text-xs">{available} spots left</span>}
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        ) : (
-                            <div className="text-center py-8 text-gray-500">No time slots configured for this experience.</div>
-                        )}
-                    </section>
+                    {/* Check Availability is now handled exclusively by the right sidebar */}
                 </div>
 
                 {/* Right Column: Sidebar Booking */}
                 <div className="relative">
-                    <div className="sticky top-24 bg-white border border-gray-200 shadow-xl rounded-xl p-6">
-                        <div className="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded w-fit mb-3">
-                            Likely to sell out
-                        </div>
-
-                        <div className="mb-6">
-                            <span className="text-sm text-gray-500">From</span>
-                            <div className="flex items-baseline gap-1">
-                                <span className="text-3xl font-extrabold text-gray-900">
+                    <div className="sticky top-32 bg-white border border-gray-200 rounded-2xl p-6">
+                        {/* Price Details */}
+                        <div className="mb-6 flex flex-col">
+                            <div className="flex items-center gap-2 text-sm text-gray-500 line-through decoration-gray-400">
+                                <span>From</span>
+                                <span>{currencySymbol}{Math.round(experience.price * 1.2)}</span>
+                            </div>
+                            <div className="flex items-baseline gap-2">
+                                <span className="text-3xl font-bold text-red-600">
                                     {currencySymbol}{experience.price}
                                 </span>
-                                <span className="text-sm text-gray-500">per person</span>
+                                <span className="text-sm font-medium text-gray-700">per person</span>
                             </div>
                         </div>
 
-                        <div className="space-y-3 mb-6">
-                            <button className="w-full flex items-center justify-between bg-gray-100 hover:bg-gray-200 p-3 rounded-lg text-left transition-colors font-medium text-gray-700">
-                                <div className="flex items-center gap-2">
-                                    <FaUserFriends />
-                                    <span>{guests} Participant{guests > 1 ? 's' : ''}</span>
+                        {/* Booking Selectors */}
+                        <div className="space-y-4 mb-8">
+                            {/* Participants */}
+                            <div className="relative border border-gray-300 rounded-full hover:border-gray-500 hover:shadow-sm transition-all focus-within:border-blue-600 focus-within:ring-1 focus-within:ring-blue-600">
+                                <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none text-gray-500">
+                                    <FaUserFriends size={16} />
                                 </div>
-                                {/* In a real app, this would open a dropdown */}
-                            </button>
+                                <div className="flex items-center justify-between w-full p-2 pl-12">
+                                    <span className="font-medium text-gray-700 text-sm">Adult x {guests}</span>
+                                    <div className="flex items-center gap-2">
+                                        <button onClick={() => setGuests(Math.max(1, guests - 1))} className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 hover:bg-gray-200 font-bold">-</button>
+                                        <button onClick={() => setGuests(guests + 1)} className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 hover:bg-gray-200 font-bold">+</button>
+                                    </div>
+                                </div>
+                            </div>
 
-                            <div className="relative">
-                                <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-gray-500">
-                                    <FaCalendarAlt />
+                            {/* Select Date */}
+                            <div className="relative border border-gray-300 rounded-full hover:border-gray-500 hover:shadow-sm transition-all focus-within:border-blue-600 focus-within:ring-1 focus-within:ring-blue-600">
+                                <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none text-gray-500">
+                                    <FaCalendarAlt size={16} />
                                 </div>
                                 <input
                                     type="date"
-                                    className="w-full bg-gray-100 hover:bg-gray-200 p-3 pl-10 rounded-lg font-medium text-gray-700 outline-none cursor-pointer"
+                                    className="w-full bg-transparent p-3 pl-12 pr-4 rounded-full font-medium text-gray-700 outline-none cursor-pointer text-sm"
                                     value={date}
                                     onChange={(e) => setDate(e.target.value)}
                                 />
                             </div>
 
-                            {experience.timeSlots && experience.timeSlots.length > 0 && (
-                                <div className="relative">
-                                    <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none text-gray-500">
-                                        <FaClock />
+                            {/* Select Time (Attractive Pills) */}
+                            {experience.timeSlots?.length > 0 && (
+                                <div className="space-y-3 pt-2">
+                                    <h4 className="font-semibold text-gray-700 text-sm flex items-center gap-2">
+                                        <FaClock className="text-gray-400" /> Starting time
+                                    </h4>
+                                    <div className="flex flex-wrap gap-2">
+                                        {experience.timeSlots.map((slot, index) => (
+                                            <button
+                                                key={index}
+                                                onClick={() => setTimeSlot(slot)}
+                                                className={`px-4 py-2 font-medium text-sm rounded-lg border transition-all duration-200 ${timeSlot === slot
+                                                    ? 'bg-[#0071eb] border-[#0071eb] text-white shadow-md transform scale-[1.03]'
+                                                    : 'bg-white border-gray-300 text-gray-700 hover:border-[#0071eb] hover:text-[#0071eb] hover:bg-blue-50'
+                                                    }`}
+                                            >
+                                                {slot}
+                                            </button>
+                                        ))}
                                     </div>
-                                    <select
-                                        className="w-full bg-gray-100 hover:bg-gray-200 p-3 pl-10 rounded-lg font-medium text-gray-700 outline-none cursor-pointer appearance-none"
-                                        value={timeSlot}
-                                        onChange={(e) => setTimeSlot(e.target.value)}
-                                        disabled={!date || fetchingAvailability}
-                                    >
-                                        <option value="">{fetchingAvailability ? 'Checking availability...' : 'Select a time'}</option>
-                                        {experience.timeSlots.map((slot, index) => {
-                                            const available = availability[slot] !== undefined ? availability[slot] : experience.capacity;
-                                            const isFull = available <= 0;
-                                            return (
-                                                <option key={index} value={slot} disabled={isFull}>
-                                                    {slot} {date ? `(${available} spots left)` : ''} {isFull ? '(Sold Out)' : ''}
-                                                </option>
-                                            );
-                                        })}
-                                    </select>
                                 </div>
                             )}
-                        </div>
 
-                        <div className="flex justify-between items-center mb-4 text-sm font-medium">
-                            <span className="text-gray-900">Total</span>
-                            <span className="text-primary font-bold text-xl">{currencySymbol}{experience.price * guests}</span>
-                        </div>
-
-                        {timeSlot && availability[timeSlot] !== undefined && guests > availability[timeSlot] && (
-                            <div className="text-red-500 text-xs mb-2 font-bold">
-                                Only {availability[timeSlot]} spots available for this time.
+                            {/* Select Language */}
+                            <div className="relative border border-gray-300 rounded-full hover:border-gray-500 hover:shadow-sm transition-all focus-within:border-blue-600 focus-within:ring-1 focus-within:ring-blue-600">
+                                <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none text-gray-500">
+                                    <FaGlobe size={16} />
+                                </div>
+                                <span className="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400">
+                                    ▾
+                                </span>
+                                <select
+                                    value={language}
+                                    onChange={(e) => setLanguage(e.target.value)}
+                                    className="w-full bg-transparent p-3 pl-12 pr-10 rounded-full font-medium text-gray-700 outline-none cursor-pointer appearance-none text-sm"
+                                >
+                                    {(experience.languages?.length > 0 ? experience.languages : ['English', 'Spanish', 'Hindi', 'French', 'Italian', 'Japanese']).map((lang) => (
+                                        <option key={lang} value={lang}>{lang}</option>
+                                    ))}
+                                </select>
                             </div>
-                        )}
+                        </div>
 
+                        {/* CTA Buttons */}
                         <button
                             onClick={NavigateToCheckout}
-                            disabled={!date || (experience.timeSlots?.length > 0 && !timeSlot) || (timeSlot && guests > (availability[timeSlot] || 0))}
-                            className="w-full bg-primary hover:bg-cyan-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold py-3.5 rounded-full transition-all shadow-md active:scale-[0.98] mb-4"
+                            disabled={!date || (experience.timeSlots?.length > 0 && !timeSlot)}
+                            className={`w-full font-bold py-3.5 px-6 rounded-full transition-all flex items-center justify-center gap-2 mt-2 ${(date && (!experience.timeSlots?.length || timeSlot))
+                                ? 'bg-[#0071eb] hover:bg-[#005cbf] text-white shadow-md active:scale-95'
+                                : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                }`}
                         >
-                            {date && experience.timeSlots?.length > 0 && !timeSlot ? 'Select a time' : 'Book Now'}
+                            Check availability
                         </button>
 
-                        <div className="space-y-3 text-xs text-gray-600">
-                            <div className="flex items-center gap-2">
-                                <FaCheck className="text-green-600" />
-                                <span>Free cancellation up to 24 hours in advance</span>
+                        {/* Add to Cart button */}
+                        <button
+                            onClick={handleAddToCart}
+                            disabled={!date || cartLoading}
+                            className={`w-full font-bold py-3.5 px-6 rounded-full border-2 transition-all flex items-center justify-center gap-2 mt-2 ${date
+                                    ? 'border-[#0071eb] text-[#0071eb] hover:bg-[#0071eb] hover:text-white active:scale-95'
+                                    : 'border-gray-200 text-gray-300 cursor-not-allowed'
+                                }`}
+                        >
+                            <FaShoppingCart />
+                            {cartLoading ? 'Adding...' : 'Add to Cart'}
+                        </button>
+                        {cartMsg && (
+                            <p className="text-green-600 text-sm text-center font-semibold animate-pulse">{cartMsg}</p>
+                        )}
+
+                        {/* Policies */}
+                        <div className="mt-8 space-y-4">
+                            <div className="flex items-start gap-3">
+                                <div className="mt-0.5 w-5 h-5 rounded-full border border-green-600 text-green-600 flex items-center justify-center shrink-0">
+                                    <FaCheck size={10} />
+                                </div>
+                                <div>
+                                    <h5 className="font-bold text-gray-900 text-sm">Free cancellation</h5>
+                                    <p className="text-gray-600 text-[13px] leading-snug">Cancel up to 24 hours in advance for a full refund</p>
+                                </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                                <FaCheck className="text-green-600" />
-                                <span>Reserve now & pay later</span>
+                            <div className="flex items-start gap-3">
+                                <div className="mt-0.5 w-5 h-5 rounded-full border border-green-600 text-green-600 flex items-center justify-center shrink-0">
+                                    <FaCheck size={10} />
+                                </div>
+                                <div>
+                                    <h5 className="font-bold text-gray-900 text-sm">Reserve now & pay later</h5>
+                                    <p className="text-gray-600 text-[13px] leading-snug">Keep your travel plans flexible — book your spot and pay nothing today. <span className="font-bold underline cursor-pointer hover:no-underline text-gray-900">Read more</span></p>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
+        </div >
     );
 };
 

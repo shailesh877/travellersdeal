@@ -127,7 +127,10 @@ export default function Home() {
     return (
       <TouchableOpacity
         activeOpacity={0.9}
-        onPress={() => setSelectedExperience(item)}
+        onPress={() => {
+          console.log("Opening Experience:", item.title);
+          setSelectedExperience(item);
+        }}
         style={{ width: width * 0.65 }}
         className="mr-5 bg-gray-100 dark:bg-[#1c1c1e] rounded-3xl overflow-hidden border border-gray-200 dark:border-gray-800 mb-4"
       >

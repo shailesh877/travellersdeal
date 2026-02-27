@@ -58,6 +58,7 @@ const experienceSchema = new mongoose.Schema({
     }],
     highlights: [String],
     itinerary: [{ title: String, description: String }],
+    itineraryMap: { type: String, required: false },
     includes: [String],
     privateGroup: { type: Boolean, default: false },
     dietaryOptions: [String], // e.g. ['Vegetarian', 'Vegan', 'Gluten-free']
@@ -76,7 +77,11 @@ const experienceSchema = new mongoose.Schema({
     status: {
         type: String,
         enum: ['pending', 'approved', 'rejected'],
-        default: 'approved'
+        default: 'pending'
+    },
+    lastApprovedSnapshot: {
+        type: mongoose.Schema.Types.Mixed,
+        default: null
     },
     isActive: {
         type: Boolean,

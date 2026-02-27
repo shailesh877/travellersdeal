@@ -1,0 +1,1 @@
+authSource=admin&replicaSet=atlas-4a26cq-shard-0

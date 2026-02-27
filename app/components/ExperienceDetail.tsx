@@ -1,11 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
 import React, { useState, useEffect } from "react";
-import { Dimensions, Image, Modal, ScrollView, Text, TouchableOpacity, View, Alert } from "react-native";
+import { Dimensions, Image, Modal, ScrollView, Text, TouchableOpacity, View, Alert, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import BookingFlow from "./BookingFlow";
 import { API_URL } from "../constants/Config";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { formatPrice } from "../app/utils/currency";
+import { formatPrice } from "../utils/currency";
 
 const { width } = Dimensions.get('window');
 
@@ -52,6 +52,9 @@ export default function ExperienceDetail({ visible, experience, onClose }: Props
     const experienceId = experience ? (experience.id || experience._id || '') : '';
 
     useEffect(() => {
+        if (visible) {
+            console.log("ExperienceDetail modal visible. Experience ID:", experienceId);
+        }
         if (visible && experienceId) {
             checkWishlistStatus();
         }
@@ -142,7 +145,7 @@ export default function ExperienceDetail({ visible, experience, onClose }: Props
         <Modal
             visible={visible}
             animationType="slide"
-            presentationStyle="pageSheet"
+            presentationStyle={Platform.OS === 'ios' ? "pageSheet" : undefined}
             onRequestClose={onClose}
         >
             <View className="flex-1 bg-white dark:bg-black">

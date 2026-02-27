@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { API_URL } from "../constants/Config";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import RazorpayCheckout from 'react-native-razorpay';
-import { formatPrice } from "../app/utils/currency";
+import { formatPrice } from "../utils/currency";
 
 const { width } = Dimensions.get('window');
 
