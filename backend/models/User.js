@@ -35,6 +35,13 @@ const userSchema = new mongoose.Schema({
         website: String,
         registrationCountry: String,
         currency: String,
+        bankDetails: {
+            accountName: String,
+            accountNumber: String,
+            bankName: String,
+            ifscCode: String,
+            swiftCode: String,
+        }
     },
     isVerified: {
         type: Boolean,

@@ -5,7 +5,7 @@ import { API_URL } from '../config/api';
 import { AuthContext } from '../context/AuthContext';
 import {
     FaPlus, FaEdit, FaTrash, FaBoxOpen, FaWallet,
-    FaClipboardList, FaChartLine, FaCalendarAlt, FaStar, FaCheck, FaTimes
+    FaClipboardList, FaChartLine, FaCalendarAlt, FaStar, FaCheck, FaTimes, FaUniversity
 } from 'react-icons/fa';
 
 const VendorDashboard = () => {
@@ -14,6 +14,15 @@ const VendorDashboard = () => {
     const [bookings, setBookings] = useState([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('overview');
+
+    // Bank Details State
+    const [accountName, setAccountName] = useState('');
+    const [accountNumber, setAccountNumber] = useState('');
+    const [ifscCode, setIfscCode] = useState('');
+    const [bankName, setBankName] = useState('');
+    const [swiftCode, setSwiftCode] = useState('');
+    const [ifscLoading, setIfscLoading] = useState(false);
+    const [ifscError, setIfscError] = useState('');
 
     useEffect(() => {
         const fetchData = async () => {
@@ -35,6 +44,16 @@ const VendorDashboard = () => {
 
                 setExperiences(expRes.data);
                 setBookings(bookRes.data);
+
+                // Initialize Bank Details State
+                if (user?.vendorDetails?.bankDetails) {
+                    const bd = user.vendorDetails.bankDetails;
+                    setAccountName(bd.accountName || '');
+                    setAccountNumber(bd.accountNumber || '');
+                    setIfscCode(bd.ifscCode || '');
+                    setBankName(bd.bankName || '');
+                    setSwiftCode(bd.swiftCode || '');
+                }
             } catch (error) {
                 console.error('Error fetching vendor data:', error);
             } finally {
@@ -131,6 +150,28 @@ const VendorDashboard = () => {
         });
     };
 
+    const handleIfscChange = async (e) => {
+        const value = e.target.value.toUpperCase();
+
+        if (value.length === 11) {
+            setIfscLoading(true);
+            setIfscError('');
+            try {
+                const response = await axios.get(`https://ifsc.razorpay.com/${value}`);
+                // Combine Bank Name and Branch for a complete string
+                setBankName(`${response.data.BANK}, ${response.data.BRANCH}`);
+            } catch (error) {
+                console.error("Error fetching IFSC details", error);
+                setIfscError('Invalid IFSC Code');
+                setBankName('');
+            } finally {
+                setIfscLoading(false);
+            }
+        } else {
+            setIfscError('');
+        }
+    };
+
     if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div></div>;
 
     return (
@@ -152,24 +193,31 @@ const VendorDashboard = () => {
                     <div className="flex gap-8 mt-8 border-b border-gray-100 overflow-x-auto">
                         <button
                             onClick={() => setActiveTab('overview')}
-                            className={`pb - 4 font - semibold text - sm transition - colors relative whitespace - nowrap ${activeTab === 'overview' ? 'text-primary' : 'text-gray-500 hover:text-gray-700'} `}
+                            className={`pb-4 font-semibold text-sm transition-colors relative whitespace-nowrap ${activeTab === 'overview' ? 'text-primary' : 'text-gray-500 hover:text-gray-700'}`}
                         >
                             Overview
                             {activeTab === 'overview' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-t-full"></div>}
                         </button>
                         <button
                             onClick={() => setActiveTab('experiences')}
-                            className={`pb - 4 font - semibold text - sm transition - colors relative whitespace - nowrap ${activeTab === 'experiences' ? 'text-primary' : 'text-gray-500 hover:text-gray-700'} `}
+                            className={`pb-4 font-semibold text-sm transition-colors relative whitespace-nowrap ${activeTab === 'experiences' ? 'text-primary' : 'text-gray-500 hover:text-gray-700'}`}
                         >
                             My Experiences ({activeListings})
                             {activeTab === 'experiences' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-t-full"></div>}
                         </button>
                         <button
                             onClick={() => setActiveTab('bookings')}
-                            className={`pb - 4 font - semibold text - sm transition - colors relative whitespace - nowrap ${activeTab === 'bookings' ? 'text-primary' : 'text-gray-500 hover:text-gray-700'} `}
+                            className={`pb-4 font-semibold text-sm transition-colors relative whitespace-nowrap ${activeTab === 'bookings' ? 'text-primary' : 'text-gray-500 hover:text-gray-700'}`}
                         >
                             Bookings ({totalBookings})
                             {activeTab === 'bookings' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-t-full"></div>}
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('settings')}
+                            className={`pb-4 font-semibold text-sm transition-colors relative whitespace-nowrap ${activeTab === 'settings' ? 'text-primary' : 'text-gray-500 hover:text-gray-700'}`}
+                        >
+                            Bank Details
+                            {activeTab === 'settings' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-t-full"></div>}
                         </button>
                     </div>
                 </div>
@@ -406,6 +454,118 @@ const VendorDashboard = () => {
                                 <h3 className="text-gray-900 font-medium">No bookings yet</h3>
                             </div>
                         )}
+                    </div>
+                )}
+
+                {/* SETTINGS / BANK DETAILS TAB */}
+                {activeTab === 'settings' && (
+                    <div className="max-w-3xl mx-auto">
+                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+                            <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-3">
+                                <FaUniversity className="text-primary" /> Bank Details
+                            </h2>
+                            <p className="text-gray-500 mb-8">
+                                Provide your bank details to receive payouts. Please ensure the information is accurate.
+                            </p>
+
+                            <form onSubmit={async (e) => {
+                                e.preventDefault();
+                                const bankDetails = {
+                                    accountName,
+                                    accountNumber,
+                                    bankName,
+                                    ifscCode,
+                                    swiftCode,
+                                };
+
+                                try {
+                                    const token = localStorage.getItem('token');
+                                    const config = { headers: { Authorization: `Bearer ${token}` } };
+                                    const res = await axios.put(`${API_URL}/users/vendor/profile`, { vendorDetails: { bankDetails } }, config);
+
+                                    // Update locally stored user data to reflect changes immediately
+                                    const updatedUser = { ...user, vendorDetails: res.data.vendorDetails };
+                                    localStorage.setItem('user', JSON.stringify(updatedUser));
+
+                                    alert('Bank details updated successfully!');
+                                } catch (error) {
+                                    console.error('Error updating bank details', error);
+                                    alert('Failed to update bank details.');
+                                }
+                            }} className="space-y-6">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div>
+                                        <label className="block text-sm font-bold text-gray-700 mb-2">Account Holder Name</label>
+                                        <input
+                                            type="text" name="accountName" required
+                                            value={accountName}
+                                            onChange={(e) => setAccountName(e.target.value)}
+                                            className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                                            placeholder="John Doe"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-bold text-gray-700 mb-2">Account Number</label>
+                                        <input
+                                            type="text" name="accountNumber" required
+                                            value={accountNumber}
+                                            onChange={(e) => setAccountNumber(e.target.value)}
+                                            className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                                            placeholder="1234567890"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div>
+                                        <label className="block text-sm font-bold text-gray-700 mb-2">IFSC / Routing Code</label>
+                                        <input
+                                            type="text" name="ifscCode" required
+                                            value={ifscCode}
+                                            onChange={(e) => {
+                                                setIfscCode(e.target.value);
+                                                handleIfscChange(e);
+                                            }}
+                                            maxLength={11}
+                                            className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent outline-none uppercase"
+                                            placeholder="e.g. SBIN0001234"
+                                        />
+                                        {ifscLoading && <p className="text-xs text-blue-500 mt-1">Fetching bank details...</p>}
+                                        {ifscError && <p className="text-xs text-red-500 mt-1">{ifscError}</p>}
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-bold text-gray-700 mb-2">Bank Name & Branch</label>
+                                        <input
+                                            type="text" name="bankName" required
+                                            value={bankName}
+                                            onChange={(e) => setBankName(e.target.value)}
+                                            className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent outline-none bg-gray-50"
+                                            placeholder="Auto-filled from IFSC"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-2">SWIFT / BIC Code (Optional)</label>
+                                    <input
+                                        type="text" name="swiftCode"
+                                        value={swiftCode}
+                                        onChange={(e) => setSwiftCode(e.target.value)}
+                                        className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                                        placeholder="SWIFT / BIC"
+                                    />
+                                </div>
+
+                                <div className="pt-4 border-t border-gray-100 flex justify-end">
+                                    <button
+                                        type="submit"
+                                        className="bg-primary hover:bg-cyan-600 text-white font-bold py-3 px-8 rounded-full shadow-lg transition-all"
+                                    >
+                                        Save Changes
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
                     </div>
                 )}
             </div>

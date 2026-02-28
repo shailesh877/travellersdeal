@@ -50,6 +50,41 @@ const getMyBookings = async (req, res) => {
     }
 };
 
+// @desc    Cancel a booking (User only)
+// @route   PUT /api/bookings/:id/cancel
+// @access  Private
+const cancelMyBooking = async (req, res) => {
+    try {
+        const booking = await Booking.findById(req.params.id);
+
+        if (!booking) {
+            return res.status(404).json({ message: 'Booking not found' });
+        }
+
+        // Make sure user owns the booking
+        if (booking.user.toString() !== req.user._id.toString()) {
+            return res.status(401).json({ message: 'User not authorized to cancel this booking' });
+        }
+
+        // Check if booking is already cancelled
+        if (booking.status === 'cancelled') {
+            return res.status(400).json({ message: 'Booking is already cancelled' });
+        }
+
+        // Optionally, restrict cancellation to specific statuses
+        if (booking.status !== 'pending' && booking.status !== 'confirmed') {
+            return res.status(400).json({ message: 'Cannot cancel a booking that is completed or already processed' });
+        }
+
+        booking.status = 'cancelled';
+        const updatedBooking = await booking.save();
+
+        res.json({ message: 'Booking cancelled successfully', booking: updatedBooking });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
 // @desc    Get bookings for vendor experiences
 // @route   GET /api/bookings/vendor
 // @access  Private/Vendor
@@ -99,4 +134,4 @@ const updateBookingStatus = async (req, res) => {
     }
 };
 
-module.exports = { createBooking, getMyBookings, getVendorBookings, updateBookingStatus };
+module.exports = { createBooking, getMyBookings, getVendorBookings, updateBookingStatus, cancelMyBooking };

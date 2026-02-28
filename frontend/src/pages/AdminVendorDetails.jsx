@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { API_URL } from '../config/api';
-import { FaArrowLeft, FaCheckCircle, FaBan, FaGlobe, FaEnvelope, FaBuilding, FaUser } from 'react-icons/fa';
+import { FaArrowLeft, FaCheckCircle, FaBan, FaGlobe, FaEnvelope, FaBuilding, FaUser, FaUniversity } from 'react-icons/fa';
 
 const AdminVendorDetails = () => {
     const { id } = useParams();
@@ -157,6 +157,45 @@ const AdminVendorDetails = () => {
                                     <label className="text-xs text-gray-400 font-bold uppercase">Joined Date</label>
                                     <p className="font-medium text-gray-700">{new Date(vendor.createdAt).toLocaleDateString()}</p>
                                 </div>
+                            </div>
+                        </div>
+
+                        {/* Bank Details Card */}
+                        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                            <h3 className="text-lg font-bold text-gray-900 mb-4 border-b pb-2 flex items-center gap-2">
+                                <FaUniversity className="text-primary" /> Bank Details
+                            </h3>
+                            <div className="space-y-4">
+                                {vendor.vendorDetails?.bankDetails ? (
+                                    <>
+                                        <div>
+                                            <label className="text-xs text-gray-400 font-bold uppercase">Account Name</label>
+                                            <p className="font-medium text-gray-700">{vendor.vendorDetails.bankDetails.accountName || 'N/A'}</p>
+                                        </div>
+                                        <div>
+                                            <label className="text-xs text-gray-400 font-bold uppercase">Account Number</label>
+                                            <p className="font-medium text-gray-700 font-mono">{vendor.vendorDetails.bankDetails.accountNumber || 'N/A'}</p>
+                                        </div>
+                                        <div>
+                                            <label className="text-xs text-gray-400 font-bold uppercase">Bank Name</label>
+                                            <p className="font-medium text-gray-700">{vendor.vendorDetails.bankDetails.bankName || 'N/A'}</p>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="text-xs text-gray-400 font-bold uppercase">IFSC / Routing</label>
+                                                <p className="font-medium text-gray-700 font-mono text-sm">{vendor.vendorDetails.bankDetails.ifscCode || 'N/A'}</p>
+                                            </div>
+                                            <div>
+                                                <label className="text-xs text-gray-400 font-bold uppercase">SWIFT / BIC</label>
+                                                <p className="font-medium text-gray-700 font-mono text-sm">{vendor.vendorDetails.bankDetails.swiftCode || 'N/A'}</p>
+                                            </div>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div className="text-center py-4 bg-gray-50 rounded-lg">
+                                        <p className="text-sm font-medium text-gray-500">No bank details provided.</p>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>

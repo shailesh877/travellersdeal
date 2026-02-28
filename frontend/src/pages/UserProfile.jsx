@@ -48,6 +48,23 @@ const UserProfile = () => {
         } catch (err) { console.error(err); }
     };
 
+    const handleCancelBooking = async (bookingId) => {
+        if (!window.confirm("Are you sure you want to cancel this booking?")) {
+            return;
+        }
+        try {
+            await axios.put(`${API_URL}/bookings/${bookingId}/cancel`, {}, config);
+            // Update local state to reflect cancellation
+            setBookings(prev => prev.map(book =>
+                book._id === bookingId ? { ...book, status: 'cancelled' } : book
+            ));
+            alert("Booking cancelled successfully.");
+        } catch (err) {
+            console.error(err);
+            alert(err.response?.data?.message || "Failed to cancel booking.");
+        }
+    };
+
     if (!user) return (
         <div className="min-h-screen flex items-center justify-center text-gray-500">
             Please log in to view your profile.
@@ -169,11 +186,17 @@ const UserProfile = () => {
                                                     </div>
 
                                                     <div className="flex gap-3 pt-4 border-t border-gray-50">
-                                                        <button className="flex-1 bg-gray-50 hover:bg-gray-100 text-gray-700 py-2 rounded-lg text-sm font-semibold transition-colors">
+                                                        <Link
+                                                            to={`/experience/${booking.experience?._id}`}
+                                                            className="flex-1 text-center bg-gray-50 hover:bg-gray-100 text-gray-700 py-2 rounded-lg text-sm font-semibold transition-colors block"
+                                                        >
                                                             View Details
-                                                        </button>
+                                                        </Link>
                                                         {booking.status === 'pending' && (
-                                                            <button className="flex-1 border border-red-200 text-red-500 hover:bg-red-50 py-2 rounded-lg text-sm font-semibold transition-colors">
+                                                            <button
+                                                                onClick={() => handleCancelBooking(booking._id)}
+                                                                className="flex-1 border border-red-200 text-red-500 hover:bg-red-50 py-2 rounded-lg text-sm font-semibold transition-colors"
+                                                            >
                                                                 Cancel Booking
                                                             </button>
                                                         )}
