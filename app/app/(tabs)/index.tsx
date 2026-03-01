@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import React, { useCallback, useEffect, useState } from "react";
 import { Dimensions, FlatList, Image, ImageBackground, Platform, ScrollView, Text, TextInput, TouchableOpacity, View, ActivityIndicator } from "react-native";
+import { useColorScheme } from "nativewind";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import ExperienceDetail from "../../components/ExperienceDetail";
 import { API_URL } from "../../constants/Config";
@@ -20,9 +21,12 @@ const categories = [
 
 export default function Home() {
   const insets = useSafeAreaInsets();
+  const { colorScheme } = useColorScheme();
+  const isDark = colorScheme === 'dark';
   const [activeCategory, setActiveCategory] = useState('3');
   const [selectedExperience, setSelectedExperience] = useState<any | null>(null);
   const [experiences, setExperiences] = useState([]);
+  const [destinations, setDestinations] = useState([]);
   const [attractions, setAttractions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -94,16 +98,19 @@ export default function Home() {
 
   const fetchData = async () => {
     try {
-      const [expRes, destRes] = await Promise.all([
+      const [expRes, destRes, attrRes] = await Promise.all([
         fetch(`${API_URL}/experiences?pageNumber=1`),
-        fetch(`${API_URL}/experiences/destinations`)
+        fetch(`${API_URL}/homepage/destinations`),
+        fetch(`${API_URL}/homepage/attractions`)
       ]);
 
       const expData = await expRes.json();
       const destData = await destRes.json();
+      const attrData = await attrRes.json();
 
       setExperiences(expData.experiences || []);
-      setAttractions(destData || []);
+      setDestinations(destData || []);
+      setAttractions(attrData || []);
     } catch (error) {
       console.error("Error fetching home data:", error);
     } finally {
@@ -135,7 +142,14 @@ export default function Home() {
         className="mr-5 bg-gray-100 dark:bg-[#1c1c1e] rounded-3xl overflow-hidden border border-gray-200 dark:border-gray-800 mb-4"
       >
         <View className="relative">
-          <Image source={{ uri: item.images?.[0] || 'https://via.placeholder.com/400x300' }} className="w-full h-44" />
+          <Image
+            source={{
+              uri: item.images?.[0]
+                ? (item.images[0].startsWith('http') ? item.images[0] : `${API_URL.replace('/api', '')}/${item.images[0]}`)
+                : 'https://via.placeholder.com/400x300'
+            }}
+            className="w-full h-44"
+          />
           {item.isOriginal && (
             <View className="absolute top-3 left-3 flex-row items-center bg-black/20 px-2 py-1 rounded-md">
               <View className="w-4 h-4 rounded-full bg-orange-500 items-center justify-center mr-1">
@@ -189,23 +203,32 @@ export default function Home() {
     );
   };
 
+  const renderDestinationCard = ({ item }: { item: any }) => (
+    <TouchableOpacity
+      activeOpacity={0.9}
+      onPress={() => router.push({ pathname: '/search', params: { query: item.city } })}
+      style={{ width: width * 0.38 }}
+      className="mr-3"
+    >
+      <View className="aspect-square rounded-2xl overflow-hidden mb-2 shadow-sm bg-gray-100 dark:bg-[#1c1c1e]">
+        <Image source={{ uri: item.image || 'https://via.placeholder.com/400x400' }} className="w-full h-full object-cover" />
+      </View>
+      <Text className="text-[#1a2b49] dark:text-white font-bold text-base leading-tight ml-1">{item.city}</Text>
+    </TouchableOpacity>
+  );
+
   const renderAttractionCard = ({ item }: { item: any }) => (
     <TouchableOpacity
       activeOpacity={0.9}
-      onPress={() => router.push({ pathname: '/search', params: { query: item.city || item.title } })}
-      style={{ width: width * 0.58 }}
-      className="mr-4 rounded-2xl overflow-hidden aspect-[4/3] bg-gray-100 dark:bg-[#1c1c1e]"
+      onPress={() => router.push({ pathname: '/search', params: { query: item.title } })}
+      style={{ width: width * 0.6 }}
+      className="mr-3"
     >
-      <Image source={{ uri: item.image || item.images?.[0] || 'https://via.placeholder.com/400x300' }} className="absolute inset-0 w-full h-full" />
-      <View className="absolute inset-0 bg-black/10 dark:bg-black/30" />
-      <View className="p-3 justify-start">
-        <View className="bg-black/80 self-start px-2 py-1 rounded-md mb-1 border border-white/20">
-          <Text className="text-white font-bold text-[12px]">{item.city || item.title}</Text>
-        </View>
-        <View className="bg-white/90 dark:bg-gray-800/90 self-start px-2 py-0.5 rounded-md">
-          <Text className="text-gray-900 dark:text-white text-[10px] font-medium">{item.count || 0} activities</Text>
-        </View>
+      <View className="h-44 rounded-2xl overflow-hidden mb-2 shadow-sm bg-gray-100 dark:bg-[#1c1c1e]">
+        <Image source={{ uri: item.image || item.images?.[0] || 'https://via.placeholder.com/400x300' }} className="w-full h-full object-cover" />
       </View>
+      <Text className="text-[#1a2b49] dark:text-white font-bold text-lg leading-tight ml-1">{item.title}</Text>
+      <Text className="text-gray-500 dark:text-gray-400 text-sm mt-0.5 ml-1">{item.activities} activities</Text>
     </TouchableOpacity>
   );
 
@@ -230,92 +253,53 @@ export default function Home() {
           paddingTop: (insets?.top ?? 0) + (Platform.OS === 'android' ? 10 : 0),
           backgroundColor: 'transparent',
         }}
-        className="px-4 pb-4 flex-row items-center gap-2"
+        className="px-4 pb-4 flex-row items-center gap-3"
       >
-        <View className="flex-1 flex-row items-center bg-white dark:bg-[#1c1c1e] rounded-full px-4 h-14 shadow-2xl elevation-10 border border-transparent dark:border-gray-800">
-          <Image
-            source={require("../../assets/images/icon.png")}
-            className="w-8 h-8 rounded-lg mr-2"
-            resizeMode="contain"
-          />
-          <Ionicons name="search" size={20} color="#6b7280" />
+        <View className="flex-1 flex-row items-center bg-white dark:bg-[#1c1c1e] rounded-full px-5 h-12 shadow-sm border border-transparent dark:border-gray-800">
+          <Ionicons name="search" size={20} color={isDark ? "#ffffff" : "#1a2b49"} className="mr-3" />
           <TextInput
             placeholder="Find places and things to do"
-            className="flex-1 ml-3 text-gray-800 dark:text-white text-md"
+            className="flex-1 ml-3 text-[#1a2b49] dark:text-white font-medium text-[15px]"
             placeholderTextColor="#9ca3af"
             value={searchQuery}
             onChangeText={handleSearch}
+            onSubmitEditing={submitSearch}
+            returnKeyType="search"
+            onFocus={submitSearch}
           />
         </View>
-        <TouchableOpacity className="w-14 h-14 bg-white dark:bg-[#1c1c1e] rounded-full items-center justify-center shadow-2xl elevation-10 border border-transparent dark:border-gray-800">
-          <Ionicons name="map-outline" size={24} color="#6b7280" />
-        </TouchableOpacity>
-        <TouchableOpacity className="w-14 h-14 bg-white dark:bg-[#1c1c1e] rounded-full items-center justify-center shadow-2xl elevation-10 border border-transparent dark:border-gray-800">
-          <Ionicons name="notifications-outline" size={24} color="#6b7280" />
+        <TouchableOpacity className="w-12 h-12 bg-white dark:bg-[#1c1c1e] rounded-full items-center justify-center shadow-sm border border-transparent dark:border-gray-800">
+          <Ionicons name="notifications-outline" size={22} color={isDark ? "#ffffff" : "#1a2b49"} />
         </TouchableOpacity>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
         {/* HERO SECTION */}
         <ImageBackground
-          source={{ uri: 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?auto=format&fit=crop&w=1200&q=80' }}
-          className="w-full h-[550px]"
+          source={{ uri: 'https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?auto=format&fit=crop&w=1200&q=80' }}
+          className="w-full aspect-[4/5] md:aspect-[3/4]"
         >
-          {/* HERO TEXT */}
-          <View className="flex-1 justify-end px-6 pb-28">
-            <Text className="text-white text-5xl font-extrabold leading-tight">
-              Find your next{"\n"}travel experience
-            </Text>
-            <TouchableOpacity className="flex-row items-center mt-6">
-              <Text className="text-white font-bold text-xl underline">Learn more</Text>
-              <Ionicons name="chevron-forward" size={24} color="white" className="ml-1" />
-            </TouchableOpacity>
-          </View>
+          {/* Top subtle dark gradient so the white text/nav stands out */}
+          <View className="absolute top-0 left-0 right-0 h-48 bg-black/40" />
 
-          {/* CATEGORY NAV (OVERLAP) */}
-          <View className="absolute bottom-0 left-0 right-0 bg-transparent">
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              className="bg-black/50 "
-              contentContainerStyle={{ alignItems: 'center', height: '100%' }}
-            >
-              {categories.map((cat) => (
-                <TouchableOpacity
-                  key={cat.id}
-                  onPress={() => setActiveCategory(cat.id)}
-                  style={{ minWidth: 90 }}
-                  className={`flex-col items-center justify-center h-20  rounded-t-2xl mx-1 px-4 ${activeCategory === cat.id ? 'bg-white dark:bg-[#1c1c1e]' : 'transparent'
-                    }`}
-                >
-                  <Ionicons
-                    name={cat.icon as any}
-                    size={26}
-                    color={activeCategory === cat.id ? (activeCategory === cat.id && activeCategory === cat.id ? '#000000' : '#ffffff') : '#ffffff'}
-                    style={{ color: activeCategory === cat.id ? (undefined) : '#ffffff' }}
-                  />
-                  <Text
-                    className={`text-xs font-bold mt-1 ${activeCategory === cat.id ? 'text-black dark:text-white' : 'text-white'
-                      }`}
-                  >
-                    {cat.name}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+          {/* HERO TEXT - Positioned closely under header */}
+          <View style={{ paddingTop: (insets?.top ?? 0) + 70 }} className="px-5">
+            <Text className="text-white text-[32px] font-extrabold leading-tight shadow-md">
+              Discover & book{"\n"}things to do
+            </Text>
           </View>
         </ImageBackground>
 
-        {/* EXPERIENCES LIST - Handles both default and search results */}
-        <View className="px-6 mt-12 mb-8">
-          <Text className="text-2xl font-extrabold text-[#002b5c] dark:text-[#58a6ff] mb-6">
-            Unforgettable travel experiences
+        {/* THINGS TO DO WHEREVER YOU'RE GOING */}
+        <View className="px-6 mt-12 mb-12">
+          <Text className="text-2xl font-bold text-[#1a2b49] dark:text-white mb-5">
+            Things to do wherever you're going
           </Text>
 
           <FlatList
-            data={experiences}
-            renderItem={renderExperienceCard}
-            keyExtractor={(item: any) => item._id}
+            data={destinations}
+            renderItem={renderDestinationCard}
+            keyExtractor={(item: any) => item.city}
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={{ paddingRight: 20 }}
@@ -323,15 +307,31 @@ export default function Home() {
         </View>
 
         {/* ATTRACTIONS YOU CAN'T MISS */}
-        <View className="px-6 mb-24">
-          <Text className="text-2xl font-extrabold text-[#002b5c] dark:text-[#58a6ff] mb-6">
-            Things to do wherever you're going
+        <View className="px-6 mb-12">
+          <Text className="text-2xl font-bold text-[#1a2b49] dark:text-white mb-5">
+            Attractions you can't miss
           </Text>
 
           <FlatList
             data={attractions}
             renderItem={renderAttractionCard}
-            keyExtractor={(item: any) => item._id || item.city}
+            keyExtractor={(item: any) => item._id || item.title}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingRight: 20 }}
+          />
+        </View>
+
+        {/* TOP RATED EXPERIENCES */}
+        <View className="px-6 mt-4 mb-24">
+          <Text className="text-2xl font-bold text-[#1a2b49] dark:text-white mb-5">
+            Top Rated Experiences
+          </Text>
+
+          <FlatList
+            data={experiences}
+            renderItem={renderExperienceCard}
+            keyExtractor={(item: any) => item._id}
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={{ paddingRight: 20 }}

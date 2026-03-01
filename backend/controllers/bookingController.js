@@ -5,23 +5,29 @@ const Experience = require('../models/Experience');
 // @route   POST /api/bookings
 // @access  Private
 const createBooking = async (req, res) => {
-    const { experienceId, date, slots, timeSlot, paymentStatus, paymentId } = req.body;
+    const { experienceId, date, slots, timeSlot, paymentStatus, paymentId, totalPrice: clientTotalPrice } = req.body;
 
     try {
+        // Guard against missing user (should be caught by auth middleware, but safety net)
+        if (!req.user) {
+            return res.status(401).json({ message: 'Not authorized' });
+        }
+
         const experience = await Experience.findById(experienceId);
 
         if (!experience) {
             return res.status(404).json({ message: 'Experience not found' });
         }
 
-        const totalPrice = experience.price * slots;
+        // Use totalPrice sent by client (accounts for adultCount); fallback to calculation
+        const totalPrice = (clientTotalPrice != null) ? clientTotalPrice : (experience.price * (slots || 1));
 
         const booking = new Booking({
             user: req.user._id,
             experience: experienceId,
             date,
             timeSlot,
-            slots,
+            slots: slots || 1,
             totalPrice,
             status: 'pending',
             paymentStatus: paymentStatus || 'pending',
@@ -31,6 +37,7 @@ const createBooking = async (req, res) => {
         const createdBooking = await booking.save();
         res.status(201).json(createdBooking);
     } catch (error) {
+        console.error('createBooking error:', error);
         res.status(500).json({ message: error.message });
     }
 };
