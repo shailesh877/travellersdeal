@@ -161,7 +161,10 @@ export default function WishlistScreen() {
                         <Text className="text-gray-500 dark:text-gray-400 text-[10px]">From</Text>
                         <Text className="text-gray-900 dark:text-white font-extrabold text-xl">{formatPrice(item.price, item.currency || 'USD')}</Text>
                     </View>
-                    <TouchableOpacity className="bg-[#002b5c] dark:bg-[#58a6ff] px-6 py-2.5 rounded-full">
+                    <TouchableOpacity
+                        onPress={() => setSelectedExperience(item)}
+                        className="bg-[#002b5c] dark:bg-[#58a6ff] px-6 py-2.5 rounded-full"
+                    >
                         <Text className="text-white font-bold text-sm">View details</Text>
                     </TouchableOpacity>
                 </View>

@@ -130,12 +130,19 @@ export default function CartScreen() {
     const taxes = Math.round(total * 0.18);
     const grandTotal = total + taxes;
 
-    // Synthesize "Experience" data for the entire cart
-    const cartSummaryExperience = cartItems.length > 0 ? {
-        id: 'CART_CHECKOUT',
-        title: 'Trip Checkout',
-        price: grandTotal.toLocaleString(),
-        image: cartItems[0]?.experience?.images?.[0] || '',
+    // Use the first cart item's real experience for checkout
+    const firstItem = cartItems[0];
+    const cartSummaryExperience = firstItem ? {
+        _id: firstItem.experience._id,
+        id: firstItem.experience._id,
+        title: firstItem.experience.title || 'Cart Checkout',
+        category: firstItem.experience.category || 'Experience',
+        images: firstItem.experience.images || [],
+        image: firstItem.experience.images?.[0] || '',
+        price: String(firstItem.priceAtAdd),
+        currency: 'INR',
+        rating: 0,
+        numReviews: 0,
     } : null;
 
     const renderCartItem = ({ item }: { item: CartItem }) => (
@@ -261,6 +268,7 @@ export default function CartScreen() {
                     experience={cartSummaryExperience}
                     selectedDate={cartItems[0]?.date || new Date().toISOString()}
                     selectedTime={cartItems[0]?.timeSlot || null}
+                    adultCount={cartItems[0]?.quantity || 1}
                 />
             )}
         </View>

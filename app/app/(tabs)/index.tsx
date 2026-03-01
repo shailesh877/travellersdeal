@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import React, { useCallback, useEffect, useState } from "react";
-import { Dimensions, FlatList, Image, ImageBackground, Platform, ScrollView, Text, TextInput, TouchableOpacity, View, ActivityIndicator } from "react-native";
+import { Dimensions, FlatList, Image, ImageBackground, Platform, RefreshControl, ScrollView, Text, TextInput, TouchableOpacity, View, ActivityIndicator } from "react-native";
 import { useColorScheme } from "nativewind";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import ExperienceDetail from "../../components/ExperienceDetail";
@@ -31,6 +31,14 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [wishlistIds, setWishlistIds] = useState<Set<string>>(new Set());
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchData();
+    await fetchWishlistIds();
+    setRefreshing(false);
+  }, []);
 
   useEffect(() => {
     fetchData();
@@ -273,7 +281,18 @@ export default function Home() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        className="flex-1"
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#002b5c']}
+            tintColor="#002b5c"
+          />
+        }
+      >
         {/* HERO SECTION */}
         <ImageBackground
           source={{ uri: 'https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?auto=format&fit=crop&w=1200&q=80' }}

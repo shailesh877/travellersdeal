@@ -219,7 +219,7 @@ export default function BookingFlow({ visible, onClose, experience, selectedDate
     const handlePayLater = () => {
         Alert.alert(
             "Reserve Now, Pay Later",
-            `Your spot will be reserved for ${selectedDate}. Payment of ${formatPrice(totalAmount.toString(), currency)} will be collected on arrival.`,
+            `Your spot will be reserved for ${new Date(selectedDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}. Payment of ${formatPrice(totalAmount.toString(), currency)} will be collected on arrival.`,
             [
                 { text: "Go Back", style: "cancel" },
                 {

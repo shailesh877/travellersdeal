@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { FlatList, Modal, ScrollView, Text, TouchableOpacity, View, Alert } from "react-native";
+import { FlatList, Linking, Modal, ScrollView, Text, TouchableOpacity, View, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { useColorScheme } from "nativewind";
@@ -144,7 +144,7 @@ export default function ProfileScreen() {
                 {/* SETTINGS SECTION */}
                 {renderSectionHeader(t('settings'))}
                 <View>
-                    {renderRow(t('profile'))}
+                    {renderRow(t('profile'), undefined, false, true, () => router.push('/edit-profile'))}
                     {renderRow(t('language'), t('language_name'), false, true, () => setLanguageModalVisible(true))}
                     {renderRow(t('appearance'), getAppearanceLabel(), false, true, () => setAppearanceModalVisible(true))}
                 </View>
@@ -152,8 +152,8 @@ export default function ProfileScreen() {
                 {/* SUPPORT SECTION */}
                 {renderSectionHeader(t('support'))}
                 <View>
-                    {renderRow("About TravellersDeal")}
-                    {renderRow("Help Center")}
+                    {renderRow("About TravellersDeal", undefined, false, true, () => Linking.openURL('https://travellersdeal.com/about-us'))}
+                    {renderRow("Help Center", undefined, false, true, () => Linking.openURL('https://travellersdeal.com/contact'))}
                 </View>
 
                 {/* FEEDBACK SECTION */}
@@ -166,8 +166,8 @@ export default function ProfileScreen() {
                 {/* LEGAL SECTION */}
                 {renderSectionHeader(t('legal'))}
                 <View>
-                    {renderRow("General terms and conditions")}
-                    {renderRow("Privacy Policy")}
+                    {renderRow("General terms and conditions", undefined, false, true, () => Linking.openURL('https://travellersdeal.com/term'))}
+                    {renderRow("Privacy Policy", undefined, false, true, () => Linking.openURL('https://travellersdeal.com/privacy-policy'))}
                     {renderRow(t('logout'), undefined, true, false, handleLogout)}
                 </View>
 
