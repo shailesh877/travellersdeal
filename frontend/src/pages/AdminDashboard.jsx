@@ -28,10 +28,15 @@ const AdminDashboard = () => {
     // Homepage Content State — draft (local edits) + committed (backend)
     const [destinations, setDestinations] = useState([]);
     const [attractions, setAttractions] = useState([]);
-    const [destDraft, setDestDraft] = useState(null);   // null = no unsaved changes
+    const [destDraft, setDestDraft] = useState(null);
     const [attrDraft, setAttrDraft] = useState(null);
     const [footerLinks, setFooterLinks] = useState([]);
     const [footerDraft, setFooterDraft] = useState(null);
+
+    // App Store Links
+    const [appLinks, setAppLinks] = useState({ playStoreUrl: '', appStoreUrl: '', feedbackUrl: '' });
+    const [savingAppLinks, setSavingAppLinks] = useState(false);
+    const [appLinksSaved, setAppLinksSaved] = useState(false);
 
     const getAuthConfig = () => ({
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
@@ -215,6 +220,26 @@ const AdminDashboard = () => {
         fetchHomepageSections();
     }, []);
 
+    // Fetch App Links
+    useEffect(() => {
+        axios.get(`${API_URL}/admin/settings`)
+            .then(r => setAppLinks({ playStoreUrl: r.data.playStoreUrl || '', appStoreUrl: r.data.appStoreUrl || '', feedbackUrl: r.data.feedbackUrl || '' }))
+            .catch(() => { });
+    }, []);
+
+    const saveAppLinks = async () => {
+        try {
+            setSavingAppLinks(true);
+            await axios.put(`${API_URL}/admin/settings`, appLinks, getAuthConfig());
+            setAppLinksSaved(true);
+            setTimeout(() => setAppLinksSaved(false), 2500);
+        } catch (err) {
+            alert('Failed to save: ' + (err.response?.data?.message || err.message));
+        } finally {
+            setSavingAppLinks(false);
+        }
+    };
+
     const cards = [
         { title: 'Total Revenue', value: `$${stats.totalRevenue ? stats.totalRevenue.toLocaleString() : '0'}`, icon: <FaMoneyBillWave />, color: 'bg-green-500' },
         { title: 'Total Bookings', value: stats.bookingCount, icon: <FaCalendarCheck />, color: 'bg-blue-500' },
@@ -286,6 +311,7 @@ const AdminDashboard = () => {
 
                     <div className="px-6 pb-2 pt-6 text-xs font-semibold text-gray-400 uppercase tracking-wider">Content</div>
                     <NavItem id="homepage" icon={FaImage} label="Homepage Sections" />
+                    <NavItem id="applinks" icon={FaStore} label="App Store Links" />
                     <button
                         onClick={() => navigate('/admin/testimonials')}
                         className="w-full flex items-center gap-3 px-6 py-4 text-sm font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-900 transition-colors"
@@ -324,6 +350,7 @@ const AdminDashboard = () => {
                             {activeTab === 'content' && 'Experience Moderation'}
                             {activeTab === 'pending' && 'Vendor Approval Queue'}
                             {activeTab === 'verified' && 'Active Vendor Partners'}
+                            {activeTab === 'applinks' && '📱 App Store Links'}
                         </h1>
                         <p className="text-gray-500 text-sm mt-1">
                             Welcome back, Admin. Here is what is happening today.
@@ -757,6 +784,55 @@ const AdminDashboard = () => {
                             <div className="bg-green-50 border border-green-200 rounded-xl px-6 py-4 text-sm text-green-700 flex items-center gap-2">
                                 <span className="text-green-500 text-lg">✓</span>
                                 <span><strong>Live:</strong> Changes are saved directly to MongoDB and reflect instantly on the homepage.</span>
+                            </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'applinks' && (
+                        <div className="max-w-2xl">
+                            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+                                <div className="flex items-center justify-between mb-6">
+                                    <div>
+                                        <h3 className="font-bold text-gray-900 text-lg">App Store Links</h3>
+                                        <p className="text-sm text-gray-500 mt-1">These links power the "Leave feedback" and "Rate the app" buttons in the mobile app's Profile screen.</p>
+                                    </div>
+                                    {appLinksSaved && <span className="text-green-600 font-semibold text-sm">✓ Saved!</span>}
+                                </div>
+                                <div className="space-y-5">
+                                    <div>
+                                        <label className="block text-sm font-semibold text-gray-700 mb-1.5">🤖 Google Play Store URL</label>
+                                        <input type="url" value={appLinks.playStoreUrl}
+                                            onChange={e => setAppLinks(p => ({ ...p, playStoreUrl: e.target.value }))}
+                                            placeholder="https://play.google.com/store/apps/details?id=..."
+                                            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-semibold text-gray-700 mb-1.5">🍎 Apple App Store URL</label>
+                                        <input type="url" value={appLinks.appStoreUrl}
+                                            onChange={e => setAppLinks(p => ({ ...p, appStoreUrl: e.target.value }))}
+                                            placeholder="https://apps.apple.com/app/..."
+                                            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-semibold text-gray-700 mb-1.5">💬 Feedback URL <span className="text-gray-400 font-normal">(optional)</span></label>
+                                        <input type="url" value={appLinks.feedbackUrl}
+                                            onChange={e => setAppLinks(p => ({ ...p, feedbackUrl: e.target.value }))}
+                                            placeholder="https://travellersdeal.com/contact"
+                                            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition" />
+                                    </div>
+                                </div>
+                                <div className="mt-6 p-4 bg-blue-50 rounded-xl text-sm text-blue-700">
+                                    <p className="font-semibold mb-1">How it works:</p>
+                                    <ul className="list-disc list-inside space-y-1 text-blue-600">
+                                        <li><strong>Rate the app</strong> → Play Store (Android) / App Store (iOS)</li>
+                                        <li><strong>Leave feedback</strong> → Feedback URL, or falls back to store link</li>
+                                        <li>Changes reflect <strong>instantly</strong> in the app on next open</li>
+                                    </ul>
+                                </div>
+                                <button onClick={saveAppLinks} disabled={savingAppLinks}
+                                    className="mt-6 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition-colors disabled:opacity-60">
+                                    {savingAppLinks ? 'Saving...' : 'Save App Store Links'}
+                                </button>
                             </div>
                         </div>
                     )}

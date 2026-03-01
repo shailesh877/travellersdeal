@@ -2,10 +2,11 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { FlatList, Linking, Modal, ScrollView, Text, TouchableOpacity, View, Alert } from "react-native";
+import { FlatList, Linking, Modal, Platform, ScrollView, Text, TouchableOpacity, View, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { useColorScheme } from "nativewind";
+import { API_URL } from "../../constants/Config";
 
 const THEME_KEY = 'user-theme';
 
@@ -17,6 +18,7 @@ export default function ProfileScreen() {
     const [isAppearanceModalVisible, setAppearanceModalVisible] = useState(false);
     const [currentTheme, setCurrentTheme] = useState<'light' | 'dark' | 'system'>('system');
     const [userInfo, setUserInfo] = useState<any>(null);
+    const [appSettings, setAppSettings] = useState<{ playStoreUrl: string; appStoreUrl: string; feedbackUrl: string } | null>(null);
 
     useEffect(() => {
         const loadSettings = async () => {
@@ -33,6 +35,12 @@ export default function ProfileScreen() {
             }
         };
         loadSettings();
+
+        // Fetch app store links from backend
+        fetch(`${API_URL}/admin/settings`)
+            .then(r => r.json())
+            .then(data => setAppSettings(data))
+            .catch(() => { }); // silently ignore if backend not updated yet
     }, []);
 
     const handleLogout = async () => {
@@ -159,8 +167,19 @@ export default function ProfileScreen() {
                 {/* FEEDBACK SECTION */}
                 {renderSectionHeader(t('feedback'))}
                 <View>
-                    {renderRow("Leave feedback")}
-                    {renderRow("Rate the app")}
+                    {renderRow("Leave feedback", undefined, false, true, () => {
+                        const url = appSettings?.feedbackUrl ||
+                            (Platform.OS === 'android' ? appSettings?.playStoreUrl : appSettings?.appStoreUrl);
+                        if (url) Linking.openURL(url);
+                        else Alert.alert('Coming Soon', 'Feedback link will be available soon.');
+                    })}
+                    {renderRow("Rate the app", undefined, false, true, () => {
+                        const url = Platform.OS === 'android'
+                            ? appSettings?.playStoreUrl
+                            : appSettings?.appStoreUrl;
+                        if (url) Linking.openURL(url);
+                        else Alert.alert('Coming Soon', 'App store link will be available soon.');
+                    })}
                 </View>
 
                 {/* LEGAL SECTION */}

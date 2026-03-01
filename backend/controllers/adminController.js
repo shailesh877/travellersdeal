@@ -3,6 +3,7 @@ const Experience = require('../models/Experience');
 const Booking = require('../models/Booking');
 const Review = require('../models/Review');
 const Testimonial = require('../models/Testimonial');
+const AppSettings = require('../models/AppSettings');
 
 // @desc    Get Admin Dashboard Stats
 // @route   GET /api/admin/stats
@@ -364,6 +365,36 @@ const deleteTestimonial = async (req, res) => {
     } catch (error) { res.status(500).json({ message: error.message }); }
 };
 
+// ─── App Settings (Store Links) ─────────────────────────────────────────────
+
+// @desc    Get app settings (public — store links)
+// @route   GET /api/admin/settings
+// @access  Public
+const getAppSettings = async (req, res) => {
+    try {
+        let settings = await AppSettings.findOne({ key: 'global' });
+        if (!settings) {
+            settings = await AppSettings.create({ key: 'global' });
+        }
+        res.json(settings);
+    } catch (error) { res.status(500).json({ message: error.message }); }
+};
+
+// @desc    Update app settings (admin)
+// @route   PUT /api/admin/settings
+// @access  Private/Admin
+const updateAppSettings = async (req, res) => {
+    try {
+        const { playStoreUrl, appStoreUrl, feedbackUrl } = req.body;
+        const settings = await AppSettings.findOneAndUpdate(
+            { key: 'global' },
+            { playStoreUrl, appStoreUrl, feedbackUrl },
+            { new: true, upsert: true }
+        );
+        res.json(settings);
+    } catch (error) { res.status(500).json({ message: error.message }); }
+};
+
 module.exports = {
     getAdminStats,
     getAllVendors,
@@ -381,5 +412,7 @@ module.exports = {
     getTestimonials,
     createTestimonial,
     updateTestimonial,
-    deleteTestimonial
+    deleteTestimonial,
+    getAppSettings,
+    updateAppSettings,
 };

@@ -17,7 +17,9 @@ const {
     getTestimonials,
     createTestimonial,
     updateTestimonial,
-    deleteTestimonial
+    deleteTestimonial,
+    getAppSettings,
+    updateAppSettings,
 } = require('../controllers/adminController');
 
 const { protect, admin } = require('../middleware/authMiddleware');
@@ -42,5 +44,8 @@ router.post('/testimonials', protect, admin, createTestimonial);
 router.put('/testimonials/:id', protect, admin, updateTestimonial);
 router.delete('/testimonials/:id', protect, admin, deleteTestimonial);
 
+// App Settings (Store Links) — public GET, admin PUT
+router.get('/settings', getAppSettings);               // public — app & website can call this
+router.put('/settings', protect, admin, updateAppSettings);
 
 module.exports = router;
