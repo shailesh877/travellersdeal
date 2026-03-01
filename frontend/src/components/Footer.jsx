@@ -7,6 +7,7 @@ import { API_URL } from '../config/api';
 const Footer = () => {
     const [footerCategories, setFooterCategories] = useState([]);
     const [activeCategoryIdx, setActiveCategoryIdx] = useState(0);
+    const [appSettings, setAppSettings] = useState({ playStoreUrl: '', appStoreUrl: '' });
 
     useEffect(() => {
         const fetchFooterLinks = async () => {
@@ -20,6 +21,11 @@ const Footer = () => {
             }
         };
         fetchFooterLinks();
+
+        // Fetch app store links from admin settings
+        axios.get(`${API_URL}/admin/settings`)
+            .then(r => setAppSettings({ playStoreUrl: r.data.playStoreUrl || '', appStoreUrl: r.data.appStoreUrl || '' }))
+            .catch(() => { });
     }, []);
 
     return (
@@ -35,8 +41,8 @@ const Footer = () => {
                                     key={idx}
                                     onClick={() => setActiveCategoryIdx(idx)}
                                     className={`pb-4 text-sm font-bold transition-colors ${activeCategoryIdx === idx
-                                            ? 'text-blue-600 border-b-2 border-blue-600'
-                                            : 'text-gray-600 hover:text-blue-600'
+                                        ? 'text-blue-600 border-b-2 border-blue-600'
+                                        : 'text-gray-600 hover:text-blue-600'
                                         }`}
                                 >
                                     {cat.category}
@@ -122,12 +128,24 @@ const Footer = () => {
                         <div>
                             <h3 className="font-bold text-white mb-4">Mobile</h3>
                             <div className="flex flex-col gap-3">
-                                <a href="#" className="w-32 md:w-36 transition-transform hover:scale-105">
-                                    <img src="https://upload.wikimedia.org/wikipedia/commons/7/78/Google_Play_Store_badge_EN.svg" alt="Get it on Google Play" className="w-full" />
-                                </a>
-                                <a href="#" className="w-32 md:w-36 transition-transform hover:scale-105">
-                                    <img src="https://upload.wikimedia.org/wikipedia/commons/3/3c/Download_on_the_App_Store_Badge.svg" alt="Download on the App Store" className="w-full" />
-                                </a>
+                                {appSettings.playStoreUrl ? (
+                                    <a href={appSettings.playStoreUrl} target="_blank" rel="noopener noreferrer" className="w-32 md:w-36 transition-transform hover:scale-105">
+                                        <img src="https://upload.wikimedia.org/wikipedia/commons/7/78/Google_Play_Store_badge_EN.svg" alt="Get it on Google Play" className="w-full" />
+                                    </a>
+                                ) : (
+                                    <a href="#" className="w-32 md:w-36 opacity-50 cursor-default">
+                                        <img src="https://upload.wikimedia.org/wikipedia/commons/7/78/Google_Play_Store_badge_EN.svg" alt="Get it on Google Play" className="w-full" />
+                                    </a>
+                                )}
+                                {appSettings.appStoreUrl ? (
+                                    <a href={appSettings.appStoreUrl} target="_blank" rel="noopener noreferrer" className="w-32 md:w-36 transition-transform hover:scale-105">
+                                        <img src="https://upload.wikimedia.org/wikipedia/commons/3/3c/Download_on_the_App_Store_Badge.svg" alt="Download on the App Store" className="w-full" />
+                                    </a>
+                                ) : (
+                                    <a href="#" className="w-32 md:w-36 opacity-50 cursor-default">
+                                        <img src="https://upload.wikimedia.org/wikipedia/commons/3/3c/Download_on_the_App_Store_Badge.svg" alt="Download on the App Store" className="w-full" />
+                                    </a>
+                                )}
                             </div>
                         </div>
                     </div>
