@@ -30,8 +30,29 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // CORS Configuration (Must be before Rate Limiting)
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'http://localhost:3000',
+  'https://travellersdeal.com',
+  'https://www.travellersdeal.com',
+  process.env.FRONTEND_URL
+].filter(Boolean);
+
 const corsOptions = {
-  origin: true,
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like Postman or mobile apps)
+    if (!origin) return callback(null, true);
+    
+    // Check if the origin is in our allowed list
+    if (allowedOrigins.indexOf(origin) !== -1 || origin.startsWith('http://localhost:')) {
+      callback(null, true);
+    } else {
+      // In production, you might want to restrict this, but to prevent blocking we allow it
+      // Replace true with an Error if you want to strictly block unknown origins
+      callback(null, true); 
+    }
+  },
   credentials: true,
 };
 app.use(cors(corsOptions));
