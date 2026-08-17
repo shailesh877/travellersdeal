@@ -2,9 +2,18 @@ const Booking = require('../models/Booking');
 const Experience = require('../models/Experience');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
-const { Expo } = require('expo-server-sdk');
+let Expo;
+let expo;
 
-let expo = new Expo();
+async function getExpo() {
+    if (!expo) {
+        const expoModule = await import('expo-server-sdk');
+        Expo = expoModule.Expo;
+        expo = new Expo();
+    }
+
+    return { Expo, expo };
+}
 
 // @desc    Create new booking
 // @route   POST /api/bookings
@@ -133,11 +142,14 @@ const updateBookingStatus = async (req, res) => {
             return res.status(404).json({ message: 'Booking not found' });
         }
 
-        // Verify that the logged-in user is the vendor of this experience
+        // Verify vendor authorization
         if (booking.experience.vendor.toString() !== req.user._id.toString()) {
-            return res.status(401).json({ message: 'Not authorized to update this booking' });
+            return res.status(401).json({
+                message: 'Not authorized to update this booking'
+            });
         }
 
+        // Update booking status
         booking.status = status;
         const updatedBooking = await booking.save();
 
@@ -148,27 +160,39 @@ const updateBookingStatus = async (req, res) => {
                 title: 'Booking Update',
                 message: `Your booking for ${booking.experience.title} is now ${status}.`,
                 type: 'booking_update',
-                data: { bookingId: booking._id, status: status }
+                data: {
+                    bookingId: booking._id,
+                    status: status
+                }
             });
         } catch (dbErr) {
             console.error('Error saving notification to DB:', dbErr);
         }
 
-        // Send Push Notification to the user
+        // Send Push Notification
         try {
             const bookingUser = await User.findById(booking.user);
-            if (bookingUser && bookingUser.expoPushToken && Expo.isExpoPushToken(bookingUser.expoPushToken)) {
-                let messages = [{
-                    to: bookingUser.expoPushToken,
-                    sound: 'default',
-                    title: 'Booking Update',
-                    body: `Your booking for ${booking.experience.title} is now ${status}.`,
-                    data: { bookingId: booking._id, status: status },
-                }];
-                
-                let chunks = expo.chunkPushNotifications(messages);
-                for (let chunk of chunks) {
-                    await expo.sendPushNotificationsAsync(chunk);
+
+            if (bookingUser && bookingUser.expoPushToken) {
+                const { Expo, expo } = await getExpo();
+
+                if (Expo.isExpoPushToken(bookingUser.expoPushToken)) {
+                    const messages = [{
+                        to: bookingUser.expoPushToken,
+                        sound: 'default',
+                        title: 'Booking Update',
+                        body: `Your booking for ${booking.experience.title} is now ${status}.`,
+                        data: {
+                            bookingId: booking._id.toString(),
+                            status: status
+                        }
+                    }];
+
+                    const chunks = expo.chunkPushNotifications(messages);
+
+                    for (const chunk of chunks) {
+                        await expo.sendPushNotificationsAsync(chunk);
+                    }
                 }
             }
         } catch (pushError) {
@@ -176,8 +200,12 @@ const updateBookingStatus = async (req, res) => {
         }
 
         res.json(updatedBooking);
+
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        console.error('updateBookingStatus error:', error);
+        res.status(500).json({
+            message: error.message
+        });
     }
 };
 
