@@ -80,7 +80,7 @@ const AdminTestimonials = () => {
                     <FaArrowLeft /> Back to Dashboard
                 </button>
 
-                <div className="flex justify-between items-center mb-8">
+                <div className="flex flex-col md:flex-row gap-4 md:justify-between md:items-center mb-8">
                     <div>
                         <h1 className="text-3xl font-bold text-gray-900">Testimonials</h1>
                         <p className="text-gray-500 mt-1 text-sm">Manage reviews shown on the public homepage. <span className="font-semibold text-primary">Not linked to any user account.</span></p>

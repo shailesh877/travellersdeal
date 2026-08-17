@@ -3,24 +3,13 @@ import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { API_URL } from '../config/api';
 import { FaArrowLeft, FaCheckCircle, FaTimesCircle, FaMapMarkerAlt, FaClock, FaTag, FaLanguage, FaUserFriends, FaCheck, FaTimes, FaCalendarAlt, FaUtensils } from 'react-icons/fa';
-import { MapContainer, TileLayer, Marker } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
-import L from 'leaflet';
-
-import icon from 'leaflet/dist/images/marker-icon.png';
-import iconShadow from 'leaflet/dist/images/marker-shadow.png';
-let DefaultIcon = L.icon({
-    iconUrl: icon,
-    shadowUrl: iconShadow,
-    iconAnchor: [12, 41]
-});
-L.Marker.prototype.options.icon = DefaultIcon;
 
 const AdminExperienceDetails = () => {
     const { id } = useParams();
     const navigate = useNavigate();
     const [experience, setExperience] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [selectedImage, setSelectedImage] = useState(null);
 
     const fetchExperience = async () => {
         try {
@@ -48,10 +37,34 @@ const AdminExperienceDetails = () => {
             const config = { headers: { Authorization: `Bearer ${token}` } };
             await axios.put(`${API_URL}/admin/experiences/${id}/verify`, { status }, config);
             alert(`Experience ${status} successfully!`);
-            navigate('/admin');
+            navigate('/admin', { state: { activeTab: 'content' } });
         } catch (error) {
             console.error(error);
-            alert('Action failed');
+            const errorMsg = error.response?.data?.message || 'Action failed';
+            alert(`Approval cancelled: ${errorMsg}`);
+        }
+    };
+
+    const handleUpdateRating = async () => {
+        const newRating = window.prompt("Enter new average rating (0-5):", experience.rating || 0);
+        if (newRating === null) return;
+        
+        const newNumReviews = window.prompt("Enter new number of reviews:", experience.numReviews || 0);
+        if (newNumReviews === null) return;
+
+        try {
+            const token = localStorage.getItem('token');
+            const config = { headers: { Authorization: `Bearer ${token}` } };
+            const { data } = await axios.put(`${API_URL}/admin/experiences/${id}`, { 
+                rating: Number(newRating),
+                numReviews: Number(newNumReviews)
+            }, config);
+            setExperience(data);
+            alert('Rating updated successfully!');
+        } catch (error) {
+            console.error(error);
+            const errorMsg = error.response?.data?.message || error.message;
+            alert('Action failed: ' + errorMsg);
         }
     };
 
@@ -122,16 +135,31 @@ const AdminExperienceDetails = () => {
                 </button>
 
                 {/* Moderation Actions Card */}
-                <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mb-8 sticky top-4 z-10 flex justify-between items-center">
-                    <div>
-                        <p className="text-gray-500 text-sm font-bold uppercase tracking-wider mb-1">Status</p>
-                        <div className="flex items-center gap-2">
-                            {experience.status === 'approved' && <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm font-bold uppercase flex items-center gap-2"><FaCheckCircle /> Approved</span>}
-                            {experience.status === 'rejected' && <span className="bg-red-100 text-red-700 px-3 py-1 rounded-full text-sm font-bold uppercase flex items-center gap-2"><FaTimesCircle /> Rejected</span>}
-                            {experience.status === 'pending' && <span className="bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-sm font-bold uppercase flex items-center gap-2">Pending Review</span>}
+                <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mb-8 sticky top-4 z-10 flex flex-col lg:flex-row gap-4 justify-between items-start lg:items-center">
+                    <div className="flex flex-col md:flex-row gap-6 items-start md:items-center">
+                        <div>
+                            <p className="text-gray-500 text-sm font-bold uppercase tracking-wider mb-1">Status</p>
+                            <div className="flex items-center gap-2">
+                                {experience.status === 'approved' && <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm font-bold uppercase flex items-center gap-2"><FaCheckCircle /> Approved</span>}
+                                {experience.status === 'rejected' && <span className="bg-red-100 text-red-700 px-3 py-1 rounded-full text-sm font-bold uppercase flex items-center gap-2"><FaTimesCircle /> Rejected</span>}
+                                {experience.status === 'pending' && <span className="bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-sm font-bold uppercase flex items-center gap-2">Pending Review</span>}
+                            </div>
+                        </div>
+                        <div className="hidden md:block w-px h-10 bg-gray-200"></div>
+                        <div>
+                            <p className="text-gray-500 text-sm font-bold uppercase tracking-wider mb-1">Rating</p>
+                            <div className="flex items-center gap-2 text-gray-900 font-bold">
+                                ⭐ {experience.rating || 0} <span className="text-gray-500 text-sm font-normal">({experience.numReviews || 0} reviews)</span>
+                            </div>
                         </div>
                     </div>
-                    <div className="flex gap-4">
+                    <div className="flex flex-wrap gap-4">
+                        <button
+                            onClick={handleUpdateRating}
+                            className="px-6 py-3 rounded-xl font-bold bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 transition-colors"
+                        >
+                            Edit Rating
+                        </button>
                         {experience.status !== 'rejected' && (
                             <button
                                 onClick={() => handleModeration('rejected')}
@@ -153,18 +181,58 @@ const AdminExperienceDetails = () => {
 
                 {/* Content Preview */}
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                    {/* Header Image */}
-                    <div className="h-64 w-full bg-gray-200 relative">
-                        {experience.images && experience.images[0] ? (
-                            <img src={experience.images[0].startsWith('http') ? experience.images[0] : `${API_URL.replace('/api', '')}${experience.images[0]}`} alt="" className="w-full h-full object-cover" />
+                    {/* Header Image Gallery */}
+                    <div className="w-full bg-gray-100 relative">
+                        {experience.images && experience.images.length > 0 ? (
+                            <>
+                                <div className="absolute top-4 right-4 bg-white/90 backdrop-blur px-4 py-2 rounded-lg shadow-sm flex flex-col gap-1 z-20">
+                                    <>
+                                        {experience.adultPrice !== undefined && <div><span className={`font-bold text-sm ${getBgClass('adultPrice')}`}>Adult: ${experience.adultPrice}</span><DiffView field="adultPrice" label="Adult Price" /></div>}
+                                        {experience.childPrice !== undefined && <div><span className={`font-bold text-sm ${getBgClass('childPrice')}`}>Child: ${experience.childPrice}</span><DiffView field="childPrice" label="Child Price" /></div>}
+                                    </>
+                                </div>
+                                <div className="flex overflow-x-auto gap-4 h-64 snap-x snap-mandatory hide-scrollbar p-2">
+                                    {experience.images.map((img, idx) => (
+                                        <img 
+                                            key={idx} 
+                                            src={img.startsWith('http') ? img : `${API_URL.replace('/api', '')}${img}`} 
+                                            alt={`Experience image ${idx + 1}`} 
+                                            className="shrink-0 w-[85%] md:w-[60%] lg:w-[40%] h-full object-cover cursor-pointer hover:opacity-90 transition-opacity snap-center rounded-xl" 
+                                            onClick={() => setSelectedImage(img)}
+                                        />
+                                    ))}
+                                </div>
+                            </>
                         ) : (
-                            <div className="flex items-center justify-center h-full text-gray-400">No Image</div>
+                            <div className="h-64 flex items-center justify-center text-gray-400 relative">
+                                No Image
+                                <div className="absolute top-4 right-4 bg-white/90 backdrop-blur px-4 py-2 rounded-lg shadow-sm flex flex-col gap-1">
+                                        {(() => {
+                                            const displayPrice = experience.bookingOptions?.[0]?.availabilityAndPricing?.pricingTiers?.length > 0 ? experience.bookingOptions[0].availabilityAndPricing.pricingTiers[0].price : undefined;
+                                            
+                                            const displayChildPrice = experience.bookingOptions?.[0]?.availabilityAndPricing?.pricingTiers?.length > 1 ? experience.bookingOptions[0].availabilityAndPricing.pricingTiers[1].price : undefined;
+                                            
+                                            return (
+                                                <>
+                                                    {displayPrice !== undefined && <div><span className={`font-bold text-sm ${getBgClass('adultPrice')}`}>Adult: ${displayPrice}</span><DiffView field="adultPrice" label="Adult Price" /></div>}
+                                                    {displayChildPrice !== undefined && <div><span className={`font-bold text-sm ${getBgClass('childPrice')}`}>Child: ${displayChildPrice}</span><DiffView field="childPrice" label="Child Price" /></div>}
+                                                </>
+                                            );
+                                        })()}
+                                </div>
+                            </div>
                         )}
-                        <div className="absolute top-4 right-4 bg-white/90 backdrop-blur px-4 py-2 rounded-lg shadow-sm">
-                            <span className={`font-bold text-lg ${getBgClass('price')}`}>${experience.price}</span>
-                            <DiffView field="price" label="Price" />
-                        </div>
                     </div>
+
+                    <style>{`
+                        .hide-scrollbar::-webkit-scrollbar {
+                            display: none;
+                        }
+                        .hide-scrollbar {
+                            -ms-overflow-style: none;
+                            scrollbar-width: none;
+                        }
+                    `}</style>
 
                     <div className="p-8">
                         <div className="flex justify-between items-start mb-6 align-top">
@@ -175,12 +243,13 @@ const AdminExperienceDetails = () => {
                                 </h1>
                                 <DiffView field="title" label="Title" />
                                 <div className="flex flex-wrap gap-4 text-sm text-gray-600 mt-2">
+
                                     <div className="flex flex-col">
-                                        <span className={`flex items-center gap-1 px-2 py-1 rounded ${getBgClass('location', 'bg-gray-100')}`}><FaMapMarkerAlt className="text-primary" /> {experience.location?.city}, {experience.location?.country} <HighlightLabel field="location" /></span>
-                                        <DiffView field="location" label="Location" />
-                                    </div>
-                                    <div className="flex flex-col">
-                                        <span className={`flex items-center gap-1 px-2 py-1 rounded ${getBgClass('duration', 'bg-gray-100')}`}><FaClock className="text-primary" /> {experience.duration} <HighlightLabel field="duration" /></span>
+                                        <span className={`flex items-center gap-1 px-2 py-1 rounded ${getBgClass('duration', 'bg-gray-100')}`}>
+                                            <FaClock className="text-primary" /> 
+                                            {experience.duration || experience.bookingOptions?.[0]?.optionSetup?.durationOrValidity?.value || 'Duration Not Provided'} 
+                                            <HighlightLabel field="duration" />
+                                        </span>
                                         <DiffView field="duration" label="Duration" />
                                     </div>
                                     <div className="flex flex-col">
@@ -194,6 +263,11 @@ const AdminExperienceDetails = () => {
                                 <p className="font-bold text-gray-900">{experience.vendor?.name}</p>
                                 <p className="text-sm text-gray-600">{experience.vendor?.email}</p>
                             </div>
+                        </div>
+                        <div className={`prose max-w-none text-gray-600 mb-8 pb-8 border-b border-gray-100 ${getBgClass('shortDescription')}`}>
+                            <h3 className="text-gray-900 font-bold text-lg mb-2">Short Description <HighlightLabel field="shortDescription" /></h3>
+                            <p>{experience.shortDescription}</p>
+                            <DiffView field="shortDescription" label="Short Description" />
                         </div>
 
                         <div className={`prose max-w-none text-gray-600 mb-8 pb-8 border-b border-gray-100 ${getBgClass('description')}`}>
@@ -295,42 +369,173 @@ const AdminExperienceDetails = () => {
                             </div>
                         </div>
 
-                        {/* Map Location */}
-                        <div className={`p-4 rounded-xl -m-4 ${getBgClass('location')}`}>
-                            <h3 className="font-bold text-gray-900 mb-4 text-xl">Exact Location <HighlightLabel field="location" /></h3>
-                            <div className="flex items-center gap-2 text-gray-600 mb-4 bg-gray-50 p-3 rounded-lg border border-gray-200">
-                                <FaMapMarkerAlt className="text-primary text-xl" />
-                                <div>
-                                    <p className="font-medium">{experience.location?.address}</p>
-                                    <p className="text-sm">{experience.location?.city}, {experience.location?.country}</p>
+                        {/* New Schema Info Section */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8 pb-8 border-b border-gray-100">
+                            {/* Guide & Transport */}
+                            <div className="space-y-6">
+                                <h3 className="font-bold text-gray-900 mb-3 text-xl">Service Details</h3>
+                                <div className={`flex flex-col gap-1 ${getBgClass('guideType')}`}>
+                                    <span className="font-medium text-gray-700">Guide Type: <span className="font-normal">{experience.guideType || 'Not specified'}</span><HighlightLabel field="guideType" /></span>
+                                    <DiffView field="guideType" label="Guide Type" />
                                 </div>
-                            </div>
-                            <div className="h-96 w-full rounded-2xl overflow-hidden border border-gray-200 shadow-inner z-0 relative">
-                                {experience.location?.coordinates &&
-                                    experience.location.coordinates.lat &&
-                                    experience.location.coordinates.lng ? (
-                                    <MapContainer
-                                        center={[experience.location.coordinates.lat, experience.location.coordinates.lng]}
-                                        zoom={13}
-                                        scrollWheelZoom={false}
-                                        style={{ height: '100%', width: '100%', zIndex: 0 }}
-                                    >
-                                        <TileLayer
-                                            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                                            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                                        />
-                                        <Marker position={[experience.location.coordinates.lat, experience.location.coordinates.lng]} />
-                                    </MapContainer>
-                                ) : (
-                                    <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-500">
-                                        Coordinate data not available for map rendering
+                                <div className={`flex flex-col gap-1 ${getBgClass('isDifferentCityTravel')}`}>
+                                    <span className="font-medium text-gray-700">Different City Travel: <span className="font-normal">{experience.isDifferentCityTravel ? 'Yes' : 'No'}</span><HighlightLabel field="isDifferentCityTravel" /></span>
+                                    <DiffView field="isDifferentCityTravel" label="Different City Travel" />
+                                </div>
+                                {experience.isTransportationUsed && (
+                                    <div className={`flex flex-col gap-1 ${getBgClass('transports')}`}>
+                                        <span className="font-medium text-gray-700">Transports: <HighlightLabel field="transports" /></span>
+                                        <ul className="list-disc pl-5 space-y-1 text-sm text-gray-600">
+                                            {experience.transports?.map((t, i) => <li key={i}>{t}</li>)}
+                                        </ul>
+                                        <DiffView field="transports" label="Transports" />
                                     </div>
                                 )}
                             </div>
+
+                            {/* Extra Information */}
+                            <div className="space-y-6">
+                                <h3 className="font-bold text-gray-900 mb-3 text-xl">Extra Information</h3>
+                                <div className={`flex flex-col gap-1 ${getBgClass('extraInformation')}`}>
+                                    <HighlightLabel field="extraInformation" />
+                                    <div className="bg-gray-50 p-4 rounded-lg text-sm text-gray-700 space-y-3">
+                                        <div className={getBgClass('meetingPoint')}><span className="font-bold">Meeting Point:</span> {experience.meetingPoint || 'None'}<HighlightLabel field="meetingPoint" /><DiffView field="meetingPoint" label="Meeting Point" /></div>
+                                        <div><span className="font-bold">Pet Friendly:</span> {experience.extraInformation?.petFriendly ? `Yes (${experience.extraInformation.petPolicy})` : 'No'}</div>
+                                        <div><span className="font-bold">Emergency Contact:</span> {experience.extraInformation?.emergencyContact?.countryCode} {experience.extraInformation?.emergencyContact?.number}</div>
+                                        <div><span className="font-bold">Voucher Info:</span> {experience.extraInformation?.voucherInfo || 'None'}</div>
+                                        
+                                        {experience.extraInformation?.notAllowed?.length > 0 && (
+                                            <div>
+                                                <span className="font-bold">Not Allowed:</span>
+                                                <ul className="list-disc pl-5 text-gray-600">
+                                                    {experience.extraInformation.notAllowed.map((item, i) => <li key={i}>{item}</li>)}
+                                                </ul>
+                                            </div>
+                                        )}
+                                        {experience.extraInformation?.whatToBring?.length > 0 && (
+                                            <div>
+                                                <span className="font-bold">What to Bring:</span>
+                                                <ul className="list-disc pl-5 text-gray-600">
+                                                    {experience.extraInformation.whatToBring.map((item, i) => <li key={i}>{item}</li>)}
+                                                </ul>
+                                            </div>
+                                        )}
+                                        {experience.extraInformation?.knowBeforeYouGo?.length > 0 && (
+                                            <div>
+                                                <span className="font-bold">Know Before You Go:</span>
+                                                <ul className="list-disc pl-5 text-gray-600">
+                                                    {experience.extraInformation.knowBeforeYouGo.filter(x => x).map((item, i) => <li key={i}>{item}</li>)}
+                                                </ul>
+                                            </div>
+                                        )}
+                                    </div>
+                                    <DiffView field="extraInformation" label="Extra Info" />
+                                </div>
+                            </div>
+                            
+                            {/* Meals */}
+                            {experience.isFoodIncluded && experience.meals?.length > 0 && (
+                                <div className="md:col-span-2 space-y-4">
+                                    <h3 className="font-bold text-gray-900 mb-3 text-xl">Included Meals <HighlightLabel field="meals" /></h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {experience.meals.map((meal, i) => (
+                                            <div key={i} className="bg-orange-50 border border-orange-100 p-4 rounded-lg text-sm text-gray-700 space-y-2">
+                                                <div className="flex justify-between items-center"><span className="font-bold text-lg text-orange-800">{meal.type}</span><span className="bg-orange-200 text-orange-800 px-2 py-1 rounded text-xs font-bold">{meal.format}</span></div>
+                                                <div><span className="font-semibold">Drinks Included:</span> {meal.isDrinksIncluded ? 'Yes' : 'No'}</div>
+                                                {meal.dietaryOptions?.length > 0 && <div><span className="font-semibold">Dietary Options:</span> {meal.dietaryOptions.join(', ')}</div>}
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <DiffView field="meals" label="Meals" />
+                                </div>
+                            )}
+
+                            {/* Booking Options */}
+                            {experience.bookingOptions?.length > 0 && (
+                                <div className="md:col-span-2 space-y-4 mt-6">
+                                    <h3 className="font-bold text-gray-900 mb-3 text-xl">Booking Options <HighlightLabel field="bookingOptions" /></h3>
+                                    <div className="space-y-6">
+                                        {experience.bookingOptions.map((opt, i) => (
+                                            <div key={i} className="bg-white border-2 border-blue-100 rounded-xl p-5 shadow-sm">
+                                                <h4 className="font-bold text-blue-900 text-lg mb-2">{opt.optionSetup?.title}</h4>
+                                                <p className="text-gray-600 text-sm mb-4">{opt.optionSetup?.description}</p>
+                                                
+                                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
+                                                    <div>
+                                                        <h5 className="font-bold text-gray-800 border-b pb-1 mb-2">Availability & Pricing</h5>
+                                                        <ul className="space-y-1 text-gray-600">
+                                                            <li><span className="font-medium">Type:</span> {opt.availabilityAndPricing?.pricingType} ({opt.availabilityAndPricing?.pricingPersonDependency})</li>
+                                                            <li><span className="font-medium">Capacity:</span> {opt.availabilityAndPricing?.capacity}</li>
+                                                            <li><span className="font-medium">Base Price:</span> {opt.availabilityAndPricing?.price || 0} {opt.availabilityAndPricing?.currency}</li>
+                                                        </ul>
+                                                        {opt.availabilityAndPricing?.pricingTiers?.length > 0 && (
+                                                            <div className="mt-2 p-2 bg-gray-50 rounded">
+                                                                <span className="font-medium text-xs block mb-1">Pricing Tiers:</span>
+                                                                {opt.availabilityAndPricing.pricingTiers.map((tier, idx) => (
+                                                                    <div key={idx} className="text-xs flex justify-between">
+                                                                        <span>{tier.title} ({tier.minAge}-{tier.maxAge}):</span>
+                                                                        <span className="font-bold">{tier.price}</span>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    
+                                                    <div>
+                                                        <h5 className="font-bold text-gray-800 border-b pb-1 mb-2">Meeting/Pickup</h5>
+                                                        <ul className="space-y-1 text-gray-600">
+                                                            <li><span className="font-medium">Type:</span> <span className="uppercase text-xs font-bold px-1.5 py-0.5 bg-gray-200 rounded">{opt.meetingPointOrPickup?.meetingType}</span></li>
+                                                            {opt.meetingPointOrPickup?.meetingType === 'meeting' && (
+                                                                <li><span className="font-medium">Address:</span> {opt.meetingPointOrPickup?.meetingAddress}</li>
+                                                            )}
+                                                            {opt.meetingPointOrPickup?.meetingType === 'pickup' && (
+                                                                <>
+                                                                    <li><span className="font-medium">Pickup Type:</span> {opt.meetingPointOrPickup?.pickupType}</li>
+                                                                    <li><span className="font-medium">Confirmation:</span> {opt.meetingPointOrPickup?.pickupConfirmationType}</li>
+                                                                </>
+                                                            )}
+                                                        </ul>
+                                                    </div>
+
+                                                    <div>
+                                                        <h5 className="font-bold text-gray-800 border-b pb-1 mb-2">Policies</h5>
+                                                        <ul className="space-y-1 text-gray-600">
+                                                            <li><span className="font-medium">Cut-off:</span> {opt.cutOff?.cutoffHours} hours</li>
+                                                            <li><span className="font-medium">Cancellation:</span> {opt.cutOff?.cancellationPolicy}</li>
+                                                        </ul>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <DiffView field="bookingOptions" label="Booking Options" />
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
             </div>
+
+            {/* Full-screen Image Modal */}
+            {selectedImage && (
+                <div 
+                    className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 cursor-pointer"
+                    onClick={() => setSelectedImage(null)}
+                >
+                    <button 
+                        className="absolute top-4 right-4 text-white text-4xl hover:text-gray-300 transition-colors z-[101]"
+                        onClick={(e) => { e.stopPropagation(); setSelectedImage(null); }}
+                    >
+                        &times;
+                    </button>
+                    <img 
+                        src={selectedImage.startsWith('http') ? selectedImage : `${API_URL.replace('/api', '')}${selectedImage}`} 
+                        alt="Full size" 
+                        className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl cursor-default"
+                        onClick={(e) => e.stopPropagation()} 
+                    />
+                </div>
+            )}
         </div>
     );
 };

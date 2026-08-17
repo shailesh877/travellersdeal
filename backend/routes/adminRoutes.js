@@ -10,6 +10,7 @@ const {
     updateUserStatus,
     getAllExperiences,
     verifyExperience,
+    updateExperience,
     getAllBookings,
     createAdminReview,
     updateAdminReview,
@@ -33,6 +34,7 @@ router.get('/vendors/:id', protect, admin, getVendorDetails);
 router.put('/vendors/:id/status', protect, admin, updateVendorStatus);
 router.get('/experiences', protect, admin, getAllExperiences);
 router.put('/experiences/:id/verify', protect, admin, verifyExperience);
+router.put('/experiences/:id', protect, admin, updateExperience);
 router.get('/bookings', protect, admin, getAllBookings);
 router.post('/reviews', protect, admin, createAdminReview);
 router.put('/reviews/:id', protect, admin, updateAdminReview);

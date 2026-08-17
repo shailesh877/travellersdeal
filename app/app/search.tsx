@@ -20,20 +20,19 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import ExperienceDetail from "../components/ExperienceDetail";
 import { API_URL } from "../constants/Config";
-import { formatPrice } from "../utils/currency";
+import { formatPrice, getDisplayPrice } from "../utils/currency";
+import { getImageUrl } from "../utils/image";
 
 const { width } = Dimensions.get("window");
 
 const CATEGORIES = [
-    { label: "All", icon: "globe-outline" },
-    { label: "Tours", icon: "map-outline" },
-    { label: "Tickets", icon: "ticket-outline" },
-    { label: "Day Trips", icon: "sunny-outline" },
-    { label: "Food", icon: "restaurant-outline" },
-    { label: "Nature", icon: "leaf-outline" },
-    { label: "Adventure", icon: "flash-outline" },
-    { label: "Culture", icon: "library-outline" },
-    { label: "Sports", icon: "football-outline" },
+    { label: "All", value: "All", icon: "globe-outline" },
+    { label: "Tours", value: "Tour", icon: "map-outline" },
+    { label: "Tickets", value: "Entry ticket", icon: "ticket-outline" },
+    { label: "Rentals", value: "Rental experience", icon: "car-outline" },
+    { label: "Transports", value: "Transport experience", icon: "bus-outline" },
+    { label: "City Cards", value: "City card", icon: "card-outline" },
+    { label: "Other", value: "Other", icon: "ellipsis-horizontal-outline" },
 ];
 
 const PRICE_RANGES = [
@@ -191,7 +190,7 @@ export default function SearchScreen() {
             >
                 <View className="relative">
                     <Image
-                        source={{ uri: item.images?.[0] || "https://via.placeholder.com/400x300" }}
+                        source={{ uri: getImageUrl(item, "https://via.placeholder.com/400x300") }}
                         className="w-full h-48"
                         resizeMode="cover"
                     />
@@ -219,7 +218,7 @@ export default function SearchScreen() {
                 </View>
 
                 <View className="p-4">
-                    <Text className="text-gray-900 dark:text-white font-bold text-base leading-snug mb-1" numberOfLines={2}>
+                    <Text className="text-gray-900 dark:text-white font-medium text-sm leading-snug mb-1" numberOfLines={2}>
                         {item.title}
                     </Text>
 
@@ -232,13 +231,16 @@ export default function SearchScreen() {
 
                     <View className="flex-row items-center justify-between">
                         <View className="flex-row items-center bg-amber-50 dark:bg-amber-900/20 px-2 py-1 rounded-lg">
-                            <Ionicons name="star" size={13} color="#f59e0b" />
+                            <Ionicons name="star" size={13} color="#F59E0B" />
                             <Text className="text-amber-700 dark:text-amber-400 font-bold text-sm ml-1">{item.rating?.toFixed(1) || "N/A"}</Text>
                             <Text className="text-gray-400 text-xs ml-1">({item.numReviews || 0})</Text>
                         </View>
                         <View className="items-end">
-                            <Text className="text-gray-400 text-[10px]">From</Text>
-                            <Text className="text-gray-900 dark:text-white font-black text-lg">{formatPrice(item.price, item.currency)}</Text>
+                            <Text className="text-gray-500 dark:text-gray-400 text-[10px]">From</Text>
+                            <View className="flex-row items-baseline gap-1">
+                                <Text className="text-gray-900 dark:text-white font-black text-lg">{formatPrice(getDisplayPrice(item), item.currency)}</Text>
+                                <Text className="text-gray-400 text-[10px]">per person</Text>
+                            </View>
                         </View>
                     </View>
                 </View>
@@ -257,7 +259,7 @@ export default function SearchScreen() {
                 className="bg-white dark:bg-[#1c1c1e] rounded-xl overflow-hidden border border-gray-100 dark:border-gray-800"
             >
                 <View className="relative">
-                    <Image source={{ uri: item.images?.[0] }} style={{ width: cardW, height: cardW * 0.75 }} resizeMode="cover" />
+                    <Image source={{ uri: getImageUrl(item) }} style={{ width: cardW, height: cardW * 0.75 }} resizeMode="cover" />
                     <TouchableOpacity
                         onPress={() => toggleWishlist(item._id)}
                         className="absolute top-2 right-2 w-7 h-7 bg-white/90 rounded-full items-center justify-center"
@@ -266,13 +268,19 @@ export default function SearchScreen() {
                     </TouchableOpacity>
                 </View>
                 <View className="p-3">
-                    <Text className="text-gray-900 dark:text-white font-bold text-xs leading-tight mb-1" numberOfLines={2}>{item.title}</Text>
+                    <Text className="text-gray-900 dark:text-white font-medium text-[11px] leading-tight mb-1" numberOfLines={2}>{item.title}</Text>
                     <View className="flex-row items-center justify-between mt-1">
                         <View className="flex-row items-center">
-                            <Ionicons name="star" size={10} color="#f59e0b" />
+                            <Ionicons name="star" size={10} color="#F59E0B" />
                             <Text className="text-gray-600 dark:text-gray-300 text-[10px] ml-0.5">{item.rating?.toFixed(1)}</Text>
                         </View>
-                        <Text className="text-gray-900 dark:text-white font-black text-xs">{formatPrice(item.price, item.currency)}</Text>
+                        <View className="items-end">
+                            <Text className="text-gray-500 dark:text-gray-400 text-[8px]">From</Text>
+                            <View className="flex-row items-baseline gap-0.5">
+                                <Text className="text-gray-900 dark:text-white font-black text-xs">{formatPrice(getDisplayPrice(item), item.currency)}</Text>
+                                <Text className="text-gray-400 text-[8px]">per person</Text>
+                            </View>
+                        </View>
                     </View>
                 </View>
             </TouchableOpacity>
@@ -325,9 +333,9 @@ export default function SearchScreen() {
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-3" contentContainerStyle={{ paddingRight: 16 }}>
                     {CATEGORIES.map((cat) => (
                         <TouchableOpacity
-                            key={cat.label}
-                            onPress={() => setActiveCategory(cat.label)}
-                            className={`flex-row items-center mr-2 px-4 py-2 rounded-full border ${activeCategory === cat.label
+                            key={cat.value}
+                            onPress={() => setActiveCategory(cat.value)}
+                            className={`flex-row items-center mr-2 px-4 py-2 rounded-full border ${activeCategory === cat.value
                                 ? "bg-[#002b5c] border-[#002b5c]"
                                 : "bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700"
                                 }`}
@@ -335,9 +343,9 @@ export default function SearchScreen() {
                             <Ionicons
                                 name={cat.icon as any}
                                 size={13}
-                                color={activeCategory === cat.label ? "#fff" : "#9ca3af"}
+                                color={activeCategory === cat.value ? "#fff" : "#9ca3af"}
                             />
-                            <Text className={`ml-1.5 text-sm font-semibold ${activeCategory === cat.label ? "text-white" : "text-gray-600 dark:text-gray-400"}`}>
+                            <Text className={`ml-1.5 text-sm font-semibold ${activeCategory === cat.value ? "text-white" : "text-gray-600 dark:text-gray-400"}`}>
                                 {cat.label}
                             </Text>
                         </TouchableOpacity>
@@ -465,15 +473,15 @@ export default function SearchScreen() {
                         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 32 }}>
                             {CATEGORIES.filter(c => c.label !== "All").map((cat) => (
                                 <TouchableOpacity
-                                    key={cat.label}
-                                    onPress={() => setActiveCategory(activeCategory === cat.label ? "All" : cat.label)}
-                                    className={`flex-row items-center px-4 py-2 rounded-full border ${activeCategory === cat.label
+                                    key={cat.value}
+                                    onPress={() => setActiveCategory(activeCategory === cat.value ? "All" : cat.value)}
+                                    className={`flex-row items-center px-4 py-2 rounded-full border ${activeCategory === cat.value
                                         ? "bg-[#002b5c] border-[#002b5c]"
                                         : "bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700"
                                         }`}
                                 >
-                                    <Ionicons name={cat.icon as any} size={14} color={activeCategory === cat.label ? "#fff" : "#6b7280"} />
-                                    <Text className={`ml-1.5 text-sm font-semibold ${activeCategory === cat.label ? "text-white" : "text-gray-600 dark:text-gray-400"}`}>
+                                    <Ionicons name={cat.icon as any} size={14} color={activeCategory === cat.value ? "#fff" : "#6b7280"} />
+                                    <Text className={`ml-1.5 text-sm font-semibold ${activeCategory === cat.value ? "text-white" : "text-gray-600 dark:text-gray-400"}`}>
                                         {cat.label}
                                     </Text>
                                 </TouchableOpacity>

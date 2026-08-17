@@ -104,7 +104,7 @@ const AdminUserDetails = () => {
                 </button>
 
                 {/* Header Card */}
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 mb-8 flex justify-between items-start">
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 mb-8 flex flex-col md:flex-row gap-6 md:justify-between items-start">
                     <div className="flex gap-6 items-center">
                         <div className="w-20 h-20 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-3xl shrink-0">
                             {user.name.charAt(0).toUpperCase()}

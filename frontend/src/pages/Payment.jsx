@@ -16,7 +16,8 @@ const Payment = () => {
         experienceId,
         date,
         slots = 1,
-        timeSlot
+        timeSlot,
+        tierSelections = []
     } = location.state || {};
 
     const [loading, setLoading] = useState(false);
@@ -27,9 +28,11 @@ const Payment = () => {
         'USD': '$', 'EUR': '€', 'GBP': '£', 'INR': '₹', 'AED': 'AED ', 'JPY': '¥'
     }[currency] || '$';
 
-    const pricePerPerson = Math.round(amount / slots);
     const originalTotal = Math.round(amount * 1.18);
     const discount = originalTotal - amount;
+
+    const gstAmount = Math.round(amount * 0.18 * 100) / 100;
+    const totalAmount = amount + gstAmount;
 
     const loadRazorpay = () => {
         return new Promise((resolve) => {
@@ -57,7 +60,7 @@ const Payment = () => {
 
             const { data: order } = await axios.post(
                 `${API_URL}/payments/create-order`,
-                { amount: Math.round(amount * 100), currency },
+                { amount: Math.round(totalAmount * 100), currency },
                 config
             );
 
@@ -83,10 +86,10 @@ const Payment = () => {
                             try {
                                 await axios.post(
                                     `${API_URL}/bookings`,
-                                    { experienceId, date, slots, timeSlot, paymentStatus: 'paid', paymentId: response.razorpay_payment_id },
+                                    { experienceId, date, slots, timeSlot, paymentStatus: 'paid', paymentId: response.razorpay_payment_id, totalPrice: totalAmount },
                                     config
                                 );
-                                navigate('/completion');
+                                navigate('/completion', { state: { paymentMethod: 'online' } });
                             } catch (bookingError) {
                                 console.error('Booking creation failed:', bookingError);
                                 alert('Payment successful but booking failed. Please contact support.');
@@ -121,11 +124,11 @@ const Payment = () => {
 
             await axios.post(
                 `${API_URL}/bookings`,
-                { experienceId, date, slots, timeSlot, paymentStatus: 'pending', paymentId: 'pay_later' },
+                { experienceId, date, slots, timeSlot, paymentStatus: 'pending', paymentId: 'pay_later', totalPrice: totalAmount },
                 config
             );
 
-            navigate('/completion');
+            navigate('/completion', { state: { paymentMethod: 'pay_later' } });
         } catch (bookingError) {
             console.error('Booking creation failed:', bookingError);
             alert('Booking failed. Please try again or contact support.');
@@ -190,7 +193,18 @@ const Payment = () => {
                                     </div>
                                     <div>
                                         <p className="text-xs text-gray-400 font-medium">Participants</p>
-                                        <p className="font-semibold text-gray-800">{slots} Adult{slots > 1 ? 's' : ''} × {currencySymbol}{pricePerPerson}</p>
+                                        <p className="font-semibold text-gray-800 flex flex-wrap gap-2">
+                                            {tierSelections.length > 0 ? (
+                                                tierSelections.map((tier, idx) => (
+                                                    <span key={idx} className="whitespace-nowrap">
+                                                        {tier.quantity} {tier.title} × {currencySymbol}{tier.price}
+                                                        {idx < tierSelections.length - 1 && <span className="mx-1 text-gray-300">|</span>}
+                                                    </span>
+                                                ))
+                                            ) : (
+                                                <span>{slots} Participant{slots > 1 ? 's' : ''}</span>
+                                            )}
+                                        </p>
                                     </div>
                                 </div>
                             </div>
@@ -241,22 +255,36 @@ const Payment = () => {
                                 <h3 className="font-bold text-gray-900 text-base mb-5">Price summary</h3>
                                 <div className="space-y-3 text-sm">
                                     <div className="flex justify-between text-gray-600">
-                                        <span>{slots} person{slots > 1 ? 's' : ''} × {currencySymbol}{pricePerPerson}</span>
-                                        <span className="line-through text-gray-400">{currencySymbol}{originalTotal}</span>
+                                        <span>
+                                            {tierSelections.length > 0 ? (
+                                                tierSelections.map((tier, idx) => (
+                                                    <span key={idx} className={idx > 0 ? "block mt-0.5" : "block"}>
+                                                        {tier.quantity} {tier.title}
+                                                    </span>
+                                                ))
+                                            ) : (
+                                                <span>{slots} Participant{slots > 1 ? 's' : ''}</span>
+                                            )}
+                                        </span>
+                                        <span>{currencySymbol}{originalTotal}</span>
                                     </div>
                                     <div className="flex justify-between text-green-600 font-medium">
                                         <span className="flex items-center gap-1"><FaTag size={11} /> Special Discount</span>
                                         <span>-{currencySymbol}{discount}</span>
                                     </div>
+                                    <div className="flex justify-between text-gray-800 font-semibold border-t border-gray-100 pt-2">
+                                        <span>Price after discount</span>
+                                        <span>{currencySymbol}{amount}</span>
+                                    </div>
                                     <div className="flex justify-between text-gray-600">
-                                        <span>Taxes & fees</span>
-                                        <span className="text-green-600 font-medium">Included</span>
+                                        <span>Taxes (18% GST)</span>
+                                        <span>{currencySymbol}{gstAmount.toFixed(2)}</span>
                                     </div>
                                 </div>
                                 <div className="mt-5 pt-4 border-t border-dashed border-gray-200 flex justify-between items-center">
                                     <span className="font-extrabold text-gray-900 text-base">Total</span>
                                     <div className="text-right">
-                                        <p className="text-2xl font-extrabold text-[#1a2b49]">{currencySymbol}{amount}</p>
+                                        <p className="text-2xl font-extrabold text-[#1a2b49]">{currencySymbol}{totalAmount.toFixed(2)}</p>
                                         <p className="text-xs text-gray-400">All taxes included</p>
                                     </div>
                                 </div>
@@ -292,7 +320,7 @@ const Payment = () => {
                                     className="w-full bg-primary hover:bg-red-600 text-white font-extrabold py-4 px-6 rounded-xl text-base transition-all duration-200 shadow-lg shadow-primary/30 hover:shadow-primary/50 hover:-translate-y-0.5 disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-2"
                                 >
                                     <FaLock size={14} />
-                                    {loading ? 'Processing...' : `Pay ${currencySymbol}${amount} with Razorpay`}
+                                    {loading ? 'Processing...' : `Pay ${currencySymbol}${totalAmount.toFixed(2)} with Razorpay`}
                                 </button>
 
                                 <div className="relative flex items-center py-2">

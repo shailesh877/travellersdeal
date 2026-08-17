@@ -5,8 +5,21 @@ import { API_URL } from '../config/api';
 import { Link, useLocation } from 'react-router-dom';
 import {
     FaUserCircle, FaEnvelope, FaCalendarAlt, FaHistory,
-    FaHeart, FaRegHeart, FaStar, FaMapMarkerAlt
+    FaHeart, FaRegHeart, FaStar, FaMapMarkerAlt, FaTimes
 } from 'react-icons/fa';
+
+const getBasePrice = (e) => {
+    if (e.bookingOptions?.[0]?.availabilityAndPricing?.pricingTiers?.length > 0) {
+        const tiers = e.bookingOptions[0].availabilityAndPricing.pricingTiers;
+        const adultTier = tiers.find(t => t.title.toLowerCase() === 'adult');
+        return adultTier ? adultTier.price : tiers[0].price;
+    }
+    if (e.pricingCategories?.length > 0) {
+        const adultCat = e.pricingCategories.find(c => c.category.toLowerCase() === 'adult');
+        if (adultCat) return adultCat.price;
+    }
+    return e.adultPrice || e.price || 0;
+};
 
 const UserProfile = () => {
     const { user, refreshUser } = useContext(AuthContext);
@@ -17,6 +30,7 @@ const UserProfile = () => {
     // Read ?tab=liked from URL (e.g. when coming from navbar heart)
     const initialTab = new URLSearchParams(location.search).get('tab') === 'liked' ? 'liked' : 'bookings';
     const [activeTab, setActiveTab] = useState(initialTab);
+    const [selectedBooking, setSelectedBooking] = useState(null);
 
     const config = { headers: { Authorization: `Bearer ${user?.token || localStorage.getItem('token')}` } };
 
@@ -155,20 +169,28 @@ const UserProfile = () => {
                                 ) : (
                                     <div className="space-y-6">
                                         {bookings.map((booking) => (
-                                            <div key={booking._id} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col md:flex-row gap-6 transition-transform hover:shadow-md">
+                                            <div 
+                                                key={booking._id} 
+                                                onClick={() => setSelectedBooking(booking)}
+                                                className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col md:flex-row gap-6 transition-transform hover:shadow-md group cursor-pointer"
+                                            >
                                                 <div className="w-full md:w-1/3 h-48 md:h-auto rounded-xl overflow-hidden relative">
                                                     <img
-                                                        src={booking.experience?.images?.[0] || 'https://via.placeholder.com/300x200'}
+                                                        src={booking.experience?.images?.[0] 
+                                                            ? (booking.experience.images[0].startsWith('http') ? booking.experience.images[0] : `${API_URL.replace('/api', '')}${booking.experience.images[0]}`) 
+                                                            : 'https://via.placeholder.com/300x200'}
                                                         alt={booking.experience?.title}
-                                                        className="w-full h-full object-cover"
+                                                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                                                     />
-                                                    <div className={`absolute top-2 left-2 px-3 py-1 rounded-full text-xs font-bold uppercase text-white shadow-sm ${booking.status === 'confirmed' ? 'bg-green-500' : booking.status === 'cancelled' ? 'bg-red-500' : 'bg-yellow-500'}`}>
-                                                        {booking.status}
-                                                    </div>
                                                 </div>
 
                                                 <div className="flex-1 flex flex-col justify-between py-1">
                                                     <div>
+                                                        <div className="mb-2">
+                                                            <span className={`inline-block px-3 py-1 rounded-full text-[10px] font-bold uppercase text-white shadow-sm ${booking.status === 'confirmed' ? 'bg-green-500' : booking.status === 'cancelled' ? 'bg-red-500' : 'bg-yellow-500'}`}>
+                                                                {booking.status}
+                                                            </span>
+                                                        </div>
                                                         <div className="flex justify-between items-start mb-2">
                                                             <h4 className="text-xl font-bold text-gray-900 line-clamp-2">{booking.experience?.title}</h4>
                                                             <span className="text-lg font-bold text-primary whitespace-nowrap">${booking.totalPrice}</span>
@@ -188,13 +210,14 @@ const UserProfile = () => {
                                                     <div className="flex gap-3 pt-4 border-t border-gray-50">
                                                         <Link
                                                             to={`/experience/${booking.experience?._id}`}
+                                                            onClick={(e) => e.stopPropagation()}
                                                             className="flex-1 text-center bg-gray-50 hover:bg-gray-100 text-gray-700 py-2 rounded-lg text-sm font-semibold transition-colors block"
                                                         >
-                                                            View Details
+                                                            View Experience
                                                         </Link>
                                                         {booking.status === 'pending' && (
                                                             <button
-                                                                onClick={() => handleCancelBooking(booking._id)}
+                                                                onClick={(e) => { e.stopPropagation(); handleCancelBooking(booking._id); }}
                                                                 className="flex-1 border border-red-200 text-red-500 hover:bg-red-50 py-2 rounded-lg text-sm font-semibold transition-colors"
                                                             >
                                                                 Cancel Booking
@@ -277,7 +300,7 @@ const UserProfile = () => {
                                                     <div className="flex items-center justify-between">
                                                         <span className="text-xs text-gray-400">{exp.duration}</span>
                                                         <span className="font-bold text-gray-900">
-                                                            {exp.currency === 'INR' ? '₹' : '$'}{exp.price}
+                                                            {exp.bookingOptions?.[0]?.availabilityAndPricing?.currency || exp.currency === 'INR' ? '₹' : '$'}{getBasePrice(exp)}
                                                         </span>
                                                     </div>
                                                 </div>
@@ -290,6 +313,65 @@ const UserProfile = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Booking Details Modal */}
+            {selectedBooking && (
+                <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 backdrop-blur-sm" onClick={() => setSelectedBooking(null)}>
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden animate-fade-in" onClick={e => e.stopPropagation()}>
+                        <div className="flex justify-between items-center p-6 border-b border-gray-100">
+                            <h3 className="text-xl font-bold text-gray-900">Booking Details</h3>
+                            <button onClick={() => setSelectedBooking(null)} className="text-gray-400 hover:text-gray-700 transition-colors p-2 rounded-full hover:bg-gray-100">
+                                <FaTimes />
+                            </button>
+                        </div>
+                        <div className="p-6 space-y-5">
+                            <div className="flex items-center gap-4">
+                                <img 
+                                    src={selectedBooking.experience?.images?.[0] ? (selectedBooking.experience.images[0].startsWith('http') ? selectedBooking.experience.images[0] : `${API_URL.replace('/api', '')}${selectedBooking.experience.images[0]}`) : 'https://via.placeholder.com/100'} 
+                                    className="w-20 h-20 rounded-xl object-cover" 
+                                    alt="Experience" 
+                                />
+                                <div>
+                                    <h4 className="font-bold text-gray-900 line-clamp-2">{selectedBooking.experience?.title}</h4>
+                                    <p className="text-sm text-gray-500 mt-1">Booking ID: <span className="font-mono text-xs">{selectedBooking._id}</span></p>
+                                </div>
+                            </div>
+
+                            <div className="bg-gray-50 rounded-xl p-4 space-y-3 border border-gray-100">
+                                <div className="flex justify-between">
+                                    <span className="text-gray-600">Booking Status</span>
+                                    <span className={`font-bold uppercase text-xs px-2 py-1 rounded-full text-white ${selectedBooking.status === 'confirmed' ? 'bg-green-500' : selectedBooking.status === 'cancelled' ? 'bg-red-500' : 'bg-yellow-500'}`}>{selectedBooking.status}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-gray-600">Payment Status</span>
+                                    <span className={`font-bold uppercase text-xs px-2 py-1 rounded-full ${selectedBooking.paymentStatus === 'paid' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>{selectedBooking.paymentStatus}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-gray-600">Date & Time</span>
+                                    <span className="font-semibold text-gray-900">{new Date(selectedBooking.date).toLocaleDateString()} {selectedBooking.timeSlot ? `· ${selectedBooking.timeSlot}` : ''}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-gray-600">Tickets</span>
+                                    <span className="font-semibold text-gray-900">{selectedBooking.slots} Guest(s)</span>
+                                </div>
+                            </div>
+                            
+                            <div className="border-t border-gray-100 pt-4 flex justify-between items-center">
+                                <span className="text-gray-900 font-bold">Total Amount Paid</span>
+                                <span className="text-2xl font-bold text-primary">${selectedBooking.totalPrice}</span>
+                            </div>
+                        </div>
+                        <div className="p-6 bg-gray-50 border-t border-gray-100 flex gap-4">
+                            <Link to={`/experience/${selectedBooking.experience?._id}`} className="flex-1 text-center bg-white border border-gray-200 text-gray-700 py-3 rounded-xl font-bold hover:bg-gray-50 transition-colors">
+                                View Tour Page
+                            </Link>
+                            <button onClick={() => setSelectedBooking(null)} className="flex-1 bg-primary text-white py-3 rounded-xl font-bold hover:bg-cyan-600 transition-colors">
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

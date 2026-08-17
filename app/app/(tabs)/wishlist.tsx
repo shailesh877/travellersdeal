@@ -6,7 +6,8 @@ import ExperienceDetail from "../../components/ExperienceDetail";
 import { API_URL } from "../../constants/Config";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "expo-router";
-import { formatPrice } from "../../utils/currency";
+import { formatPrice, getDisplayPrice } from "../../utils/currency";
+import { getImageUrl } from "../../utils/image";
 
 const { width } = Dimensions.get('window');
 
@@ -53,8 +54,8 @@ export default function WishlistScreen() {
                     id: item._id,
                     title: item.title,
                     category: item.category,
-                    image: item.images?.[0] || 'https://via.placeholder.com/400x300',
-                    price: item.price ? item.price.toString() : 'N/A',
+                    image: getImageUrl(item) || 'https://via.placeholder.com/400x300',
+                    price: getDisplayPrice(item).toString(),
                     rating: item.rating || 0,
                     reviews: item.numReviews ? item.numReviews.toString() : '0',
                     features: item.duration ? `${item.duration} • ${item.location?.city || 'Unknown'}` : 'Details inside',
@@ -138,16 +139,16 @@ export default function WishlistScreen() {
 
             <View className="p-5">
                 <Text className="text-gray-500 dark:text-gray-400 text-[10px] font-bold tracking-widest uppercase mb-1">{item.category}</Text>
-                <Text className="text-gray-900 dark:text-white font-bold text-[18px] leading-tight" numberOfLines={2}>{item.title}</Text>
+                <Text className="text-gray-900 dark:text-white font-medium text-base leading-tight" numberOfLines={2}>{item.title}</Text>
 
                 <View className="flex-row items-center mt-3 gap-1">
                     <View className="flex-row">
                         {[1, 2, 3, 4, 5].map((s) => (
                             <Ionicons
                                 key={s}
-                                name="star"
+                                name={s <= Math.floor(item.rating || 0) ? "star" : "star-outline"}
                                 size={12}
-                                color={s <= Math.floor(item.rating || 0) ? "#1f2937" : "#d1d5db"}
+                                color="#F59E0B"
                                 className={s <= Math.floor(item.rating || 0) ? "text-gray-900 dark:text-gray-200" : "text-gray-300 dark:text-gray-700"}
                             />
                         ))}
@@ -159,7 +160,10 @@ export default function WishlistScreen() {
                 <View className="flex-row items-center justify-between mt-4">
                     <View>
                         <Text className="text-gray-500 dark:text-gray-400 text-[10px]">From</Text>
-                        <Text className="text-gray-900 dark:text-white font-extrabold text-xl">{formatPrice(item.price, item.currency || 'USD')}</Text>
+                        <View className="flex-row items-baseline gap-1">
+                            <Text className="text-gray-900 dark:text-white font-extrabold text-xl">{formatPrice(item.price, item.currency || 'INR')}</Text>
+                            <Text className="text-gray-500 dark:text-gray-400 text-[10px]">per adult</Text>
+                        </View>
                     </View>
                     <TouchableOpacity
                         onPress={() => setSelectedExperience(item)}

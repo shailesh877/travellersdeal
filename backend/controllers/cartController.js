@@ -6,15 +6,24 @@ const Experience = require('../models/Experience');
 // @access  Private
 const getCart = async (req, res) => {
     try {
-        let cart = await Cart.findOne({ user: req.user._id }).populate('items.experience');
+        let cart = await Cart.findOne({ user: req.user._id }).populate({
+            path: 'items.experience',
+            populate: { path: 'vendor', select: 'isVerified' }
+        });
 
         if (!cart) {
             // Create empty cart if doesn't exist
             cart = await Cart.create({ user: req.user._id, items: [] });
         }
 
+        // Filter for display (only approved, active, and verified vendor)
+        const validItems = cart.items.filter(item => {
+            const exp = item.experience;
+            return exp && exp.status === 'approved' && exp.isActive && exp.vendor?.isVerified;
+        });
+
         res.json({
-            items: cart.items,
+            items: validItems,
             total: cart.getTotal(),
             itemCount: cart.getItemCount()
         });
@@ -28,7 +37,7 @@ const getCart = async (req, res) => {
 // @access  Private
 const addToCart = async (req, res) => {
     try {
-        const { experienceId, quantity = 1, date, timeSlot } = req.body;
+        const { experienceId, quantity = 1, date, timeSlot, priceAtAdd } = req.body;
 
         // Validate experience exists
         const experience = await Experience.findById(experienceId);
@@ -52,13 +61,22 @@ const addToCart = async (req, res) => {
             // Update quantity if item exists
             cart.items[existingItemIndex].quantity += quantity;
         } else {
+            // Calculate fallback price if not provided
+            let calculatedPrice = priceAtAdd || 0;
+            if (!priceAtAdd && experience.bookingOptions && experience.bookingOptions.length > 0) {
+                const opt = experience.bookingOptions[0];
+                calculatedPrice = opt.availabilityAndPricing?.pricingTiers?.length > 0 
+                    ? opt.availabilityAndPricing.pricingTiers[0].price 
+                    : (opt.availabilityAndPricing?.price || 0);
+            }
+
             // Add new item
             cart.items.push({
                 experience: experienceId,
                 quantity,
                 date: date || new Date(),
                 timeSlot: timeSlot || '10:00 AM',
-                priceAtAdd: experience.price
+                priceAtAdd: calculatedPrice
             });
         }
 

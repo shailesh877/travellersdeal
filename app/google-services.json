@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "922544964214",
+    "project_id": "travellers-deal",
+    "storage_bucket": "travellers-deal.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:922544964214:android:5e0838d717c46b10339557",
+        "android_client_info": {
+          "package_name": "com.babbukallu.travellersdeal"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC-r8pVCTzGg9E145kTH5m2V050KHFP5qQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

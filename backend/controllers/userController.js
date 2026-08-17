@@ -5,18 +5,26 @@ const User = require('../models/User');
 // @access  Private
 const getWishlist = async (req, res) => {
     try {
-        const user = await User.findById(req.user._id).populate('wishlist');
+        const user = await User.findById(req.user._id).populate({
+            path: 'wishlist',
+            populate: { path: 'vendor', select: 'isVerified' }
+        });
 
         // Filter out nulls (deleted experiences)
-        const activeWishlist = user.wishlist.filter(item => item !== null);
+        const existingWishlist = user.wishlist.filter(item => item !== null);
 
         // If we found nulls, meaning some experiences were deleted, let's update the user
-        if (activeWishlist.length !== user.wishlist.length) {
-            user.wishlist = activeWishlist;
+        if (existingWishlist.length !== user.wishlist.length) {
+            user.wishlist = existingWishlist;
             await user.save();
         }
 
-        res.json(activeWishlist);
+        // Filter for display (only approved, active, and verified vendor)
+        const displayWishlist = existingWishlist.filter(item => {
+            return item.status === 'approved' && item.isActive && item.vendor?.isVerified;
+        });
+
+        res.json(displayWishlist);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -186,6 +194,29 @@ const changePassword = async (req, res) => {
     }
 };
 
+// @desc    Save Expo Push Token
+// @route   PUT /api/users/push-token
+// @access  Private
+const savePushToken = async (req, res) => {
+    try {
+        const { expoPushToken } = req.body;
+        
+        if (!expoPushToken) {
+            return res.status(400).json({ message: 'Push token is required' });
+        }
+
+        const user = await User.findById(req.user._id);
+        if (!user) return res.status(404).json({ message: 'User not found' });
+
+        user.expoPushToken = expoPushToken;
+        await user.save();
+
+        res.json({ message: 'Push token saved successfully' });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
 module.exports = {
     getWishlist,
     addToWishlist,
@@ -194,4 +225,5 @@ module.exports = {
     getProfile,
     updateProfile,
     changePassword,
+    savePushToken,
 };

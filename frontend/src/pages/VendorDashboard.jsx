@@ -5,13 +5,28 @@ import { API_URL } from '../config/api';
 import { AuthContext } from '../context/AuthContext';
 import {
     FaPlus, FaEdit, FaTrash, FaBoxOpen, FaWallet,
-    FaClipboardList, FaChartLine, FaCalendarAlt, FaStar, FaCheck, FaTimes, FaUniversity
+    FaClipboardList, FaChartLine, FaCalendarAlt, FaStar, FaCheck, FaTimes, FaUniversity, FaEye
 } from 'react-icons/fa';
+import Footer from '../components/Footer';
+
+const getBasePrice = (e) => {
+    if (e.bookingOptions?.[0]?.availabilityAndPricing?.pricingTiers?.length > 0) {
+        const tiers = e.bookingOptions[0].availabilityAndPricing.pricingTiers;
+        const adultTier = tiers.find(t => t.title.toLowerCase() === 'adult');
+        return adultTier ? adultTier.price : tiers[0].price;
+    }
+    if (e.pricingCategories?.length > 0) {
+        const adultCat = e.pricingCategories.find(c => c.category.toLowerCase() === 'adult');
+        if (adultCat) return adultCat.price;
+    }
+    return e.adultPrice || e.price || 0;
+};
 
 const VendorDashboard = () => {
     const { user } = useContext(AuthContext);
     const [experiences, setExperiences] = useState([]);
     const [bookings, setBookings] = useState([]);
+    const [vendorProfile, setVendorProfile] = useState(null);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('overview');
 
@@ -37,13 +52,15 @@ const VendorDashboard = () => {
                     headers: { Authorization: `Bearer ${token}` },
                 };
 
-                const [expRes, bookRes] = await Promise.all([
+                const [expRes, bookRes, profileRes] = await Promise.all([
                     axios.get(`${API_URL}/experiences/my`, config),
-                    axios.get(`${API_URL}/bookings/vendor`, config)
+                    axios.get(`${API_URL}/bookings/vendor`, config),
+                    axios.get(`${API_URL}/users/profile`, config)
                 ]);
 
                 setExperiences(expRes.data);
                 setBookings(bookRes.data);
+                setVendorProfile(profileRes.data);
 
                 // Initialize Bank Details State
                 if (user?.vendorDetails?.bankDetails) {
@@ -175,14 +192,28 @@ const VendorDashboard = () => {
     if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div></div>;
 
     return (
-        <div className="min-h-screen bg-gray-50 pb-12 pt-20">
-            {/* Header Section */}
+        <div className="min-h-screen bg-gray-50 pt-20 flex flex-col justify-between">
+            <div className="flex-grow">
+                {/* Header Section */}
             <div className="bg-white border-b border-gray-200">
                 <div className="container mx-auto px-4 py-8">
                     <div className="flex flex-col md:flex-row justify-between items-center gap-4">
                         <div>
                             <h1 className="text-3xl font-bold text-gray-900">Provider Dashboard</h1>
-                            <p className="text-gray-500 mt-1">Welcome back, {user?.name}</p>
+                            <div className="flex items-center gap-3 mt-1">
+                                <p className="text-gray-500">Welcome back, {user?.name}</p>
+                                {vendorProfile && (
+                                    vendorProfile.isVerified ? (
+                                        <span className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded-full font-bold flex items-center gap-1 shadow-sm">
+                                            <FaCheck size={10} /> Verified
+                                        </span>
+                                    ) : (
+                                        <span className="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded-full font-bold flex items-center gap-1 shadow-sm">
+                                            <FaTimes size={10} /> Unverified
+                                        </span>
+                                    )
+                                )}
+                            </div>
                         </div>
                         <Link to="/vendor/add" className="bg-primary hover:bg-cyan-600 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-cyan-200 transition-all transform hover:-translate-y-0.5">
                             <FaPlus /> create New Listing
@@ -227,6 +258,17 @@ const VendorDashboard = () => {
                 {/* OVERVIEW TAB */}
                 {activeTab === 'overview' && (
                     <div className="space-y-8">
+                        {vendorProfile && !vendorProfile.isVerified && (
+                            <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-lg shadow-sm">
+                                <div className="flex items-center">
+                                    <FaTimes className="text-yellow-400 text-xl mr-3" />
+                                    <div>
+                                        <h3 className="text-yellow-800 font-bold text-sm">Account Unverified</h3>
+                                        <p className="text-yellow-700 text-xs mt-1">Your vendor account is not verified. Your experiences will not be visible to users until an admin verifies your account.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                         {/* Stats Grid */}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
@@ -239,24 +281,30 @@ const VendorDashboard = () => {
                                     <p className="text-xs text-green-600 mt-1 flex items-center gap-1"><FaChartLine /> +12% this month</p>
                                 </div>
                             </div>
-                            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
-                                <div className="p-4 bg-blue-50 text-blue-600 rounded-xl">
+                            <div 
+                                onClick={() => setActiveTab('bookings')} 
+                                className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4 cursor-pointer hover:border-blue-300 hover:shadow-md transition-all group"
+                            >
+                                <div className="p-4 bg-blue-50 text-blue-600 rounded-xl group-hover:scale-105 transition-transform">
                                     <FaClipboardList className="text-2xl" />
                                 </div>
                                 <div>
                                     <p className="text-sm text-gray-500 font-medium">Total Bookings</p>
                                     <h3 className="text-2xl font-bold text-gray-900">{totalBookings}</h3>
-                                    <p className="text-xs text-gray-400 mt-1">Lifetime bookings</p>
+                                    <p className="text-xs text-blue-600 mt-1 font-semibold group-hover:underline">View bookings →</p>
                                 </div>
                             </div>
-                            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
-                                <div className="p-4 bg-purple-50 text-purple-600 rounded-xl">
+                            <div 
+                                onClick={() => setActiveTab('experiences')} 
+                                className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4 cursor-pointer hover:border-purple-300 hover:shadow-md transition-all group"
+                            >
+                                <div className="p-4 bg-purple-50 text-purple-600 rounded-xl group-hover:scale-105 transition-transform">
                                     <FaBoxOpen className="text-2xl" />
                                 </div>
                                 <div>
                                     <p className="text-sm text-gray-500 font-medium">Active Experiences</p>
                                     <h3 className="text-2xl font-bold text-gray-900">{activeListings}</h3>
-                                    <p className="text-xs text-purple-600 mt-1">View all listings</p>
+                                    <p className="text-xs text-purple-600 mt-1 font-semibold group-hover:underline">View all listings →</p>
                                 </div>
                             </div>
                         </div>
@@ -316,14 +364,14 @@ const VendorDashboard = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {experiences.map(exp => (
                             <div key={exp._id} className={`bg-white rounded-2xl shadow-sm border overflow-hidden hover:shadow-md transition-shadow group ${exp.status === 'rejected' ? 'border-red-200' : exp.status === 'pending' ? 'border-yellow-200' : 'border-gray-100'}`}>
-                                <div className="relative h-48 overflow-hidden">
+                                <Link to={`/experience/${exp._id}`} className="block relative h-48 overflow-hidden cursor-pointer">
                                     <img
                                         src={exp.images[0] ? (exp.images[0].startsWith('http') ? exp.images[0] : `${API_URL.replace('/api', '')}${exp.images[0]}`) : 'https://placehold.co/600x400'}
                                         alt={exp.title}
                                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                                     />
                                     <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-bold shadow-sm">
-                                        {exp.currency} {exp.price}
+                                        {exp.bookingOptions?.[0]?.availabilityAndPricing?.currency || exp.currency || '$'} {getBasePrice(exp)}
                                     </div>
                                     <div className="absolute top-4 left-4 bg-black/50 backdrop-blur-sm text-white px-3 py-1 rounded-full text-xs font-bold">
                                         {exp.category}
@@ -340,9 +388,11 @@ const VendorDashboard = () => {
                                             <span className="bg-red-500 text-white text-[10px] font-black px-2 py-1 rounded-full uppercase tracking-wider flex items-center gap-1"><FaTimes className="text-[8px]" /> Rejected</span>
                                         )}
                                     </div>
-                                </div>
+                                </Link>
                                 <div className="p-6">
-                                    <h3 className="font-bold text-lg text-gray-900 mb-2 line-clamp-1">{exp.title}</h3>
+                                    <Link to={`/experience/${exp._id}`} className="block hover:text-[#0071EB] transition-colors">
+                                        <h3 className="font-bold text-lg text-gray-900 mb-2 line-clamp-1 hover:text-[#0071EB]">{exp.title}</h3>
+                                    </Link>
                                     <p className="text-gray-500 text-sm mb-3 line-clamp-2">{exp.description}</p>
 
                                     {/* Status Notice Banner */}
@@ -359,18 +409,31 @@ const VendorDashboard = () => {
 
                                     <div className="flex items-center gap-4 text-xs text-gray-400 mb-6">
                                         <div className="flex items-center gap-1"><FaCalendarAlt /> {exp.duration}</div>
-                                        <div className="flex items-center gap-1"><FaStar className="text-yellow-400" /> 4.5 (New)</div>
+                                        <div className="flex items-center gap-1">
+                                            <FaStar className={exp.numReviews > 0 ? "text-yellow-400" : "text-gray-300"} />
+                                            {exp.numReviews > 0 ? (
+                                                <span className="font-medium text-gray-700">
+                                                    {Number(exp.averageRating || 0).toFixed(1)} <span className="text-gray-400 font-normal">({exp.numReviews} review{exp.numReviews > 1 ? 's' : ''})</span>
+                                                </span>
+                                            ) : (
+                                                <span>New</span>
+                                            )}
+                                        </div>
                                     </div>
 
                                     <div className="flex gap-2">
-                                        <Link to={`/vendor/edit/${exp._id}`} className="flex-1 bg-gray-50 hover:bg-gray-100 text-gray-700 py-2 rounded-lg font-semibold text-sm transition-colors border border-gray-200 text-center">
-                                            Edit
+                                        <Link to={`/experience/${exp._id}`} className="flex-1 bg-blue-50 hover:bg-blue-100 text-[#0071EB] py-2 rounded-lg font-semibold text-sm transition-colors border border-blue-100 text-center flex items-center justify-center gap-1.5">
+                                            <FaEye size={13} /> View
+                                        </Link>
+                                        <Link to={`/vendor/edit/${exp._id}`} className="flex-1 bg-gray-50 hover:bg-gray-100 text-gray-700 py-2 rounded-lg font-semibold text-sm transition-colors border border-gray-200 text-center flex items-center justify-center gap-1.5">
+                                            <FaEdit size={12} /> Edit
                                         </Link>
                                         <button
                                             onClick={() => handleDelete(exp._id)}
-                                            className="flex-1 bg-red-50 hover:bg-red-100 text-red-600 py-2 rounded-lg font-semibold text-sm transition-colors border border-red-100"
+                                            className="px-3 bg-red-50 hover:bg-red-100 text-red-600 py-2 rounded-lg font-semibold text-sm transition-colors border border-red-100 flex items-center justify-center"
+                                            title="Delete experience"
                                         >
-                                            Delete
+                                            <FaTrash size={12} />
                                         </button>
                                     </div>
                                 </div>
@@ -559,7 +622,7 @@ const VendorDashboard = () => {
                                 <div className="pt-4 border-t border-gray-100 flex justify-end">
                                     <button
                                         type="submit"
-                                        className="bg-primary hover:bg-cyan-600 text-white font-bold py-3 px-8 rounded-full shadow-lg transition-all"
+                                        className="w-full sm:w-auto bg-primary hover:bg-cyan-600 text-white font-bold py-3 px-8 rounded-full shadow-lg transition-all"
                                     >
                                         Save Changes
                                     </button>
@@ -570,6 +633,8 @@ const VendorDashboard = () => {
                 )}
             </div>
         </div>
+        <Footer />
+    </div>
     );
 };
 

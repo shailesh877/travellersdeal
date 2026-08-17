@@ -11,6 +11,10 @@ const protect = async (req, res, next) => {
         try {
             token = req.headers.authorization.split(' ')[1];
 
+            if (!token || token === 'null' || token === 'undefined') {
+                return res.status(401).json({ message: 'Not authorized, invalid token' });
+            }
+
             const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
             req.user = await User.findById(decoded.id).select('-password');
@@ -19,16 +23,18 @@ const protect = async (req, res, next) => {
                 return res.status(401).json({ message: 'User not found, authorization failed' });
             }
 
-            next();
+            if (req.user.isActive === false) {
+                return res.status(401).json({ message: 'Your account has been deactivated.', accountDeactivated: true });
+            }
+
+            return next();
         } catch (error) {
-            console.error(error);
-            res.status(401).json({ message: 'Not authorized, token failed' });
+            console.error('Auth protect error:', error.message);
+            return res.status(401).json({ message: 'Not authorized, token failed' });
         }
     }
 
-    if (!token) {
-        res.status(401).json({ message: 'Not authorized, no token' });
-    }
+    return res.status(401).json({ message: 'Not authorized, no token' });
 };
 
 const admin = (req, res, next) => {

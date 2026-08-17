@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import React, { useMemo } from "react";
-import { Dimensions, Image, Modal, Platform, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { Dimensions, Image, Modal, Platform, ScrollView, Text, TouchableOpacity, View, Linking } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const { width } = Dimensions.get('window');
@@ -310,7 +310,10 @@ export default function BookingDetail({ visible, booking, onClose }: Props) {
                             <Ionicons name="download-outline" size={20} color="#6b7280" />
                             <Text className="text-[#002b5c] dark:text-[#58a6ff] font-black text-[10px] mt-1 uppercase tracking-tighter">Ticket</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity className="flex-1 bg-white dark:bg-[#1c1c1e] border border-gray-200 dark:border-gray-800 py-4 rounded-2xl items-center shadow-sm">
+                        <TouchableOpacity 
+                            onPress={() => Linking.openURL('https://travellersdeal.com/contact')}
+                            className="flex-1 bg-white dark:bg-[#1c1c1e] border border-gray-200 dark:border-gray-800 py-4 rounded-2xl items-center shadow-sm"
+                        >
                             <Ionicons name="chatbox-outline" size={20} color="#6b7280" />
                             <Text className="text-gray-700 dark:text-gray-400 font-bold text-xs mt-1">Support</Text>
                         </TouchableOpacity>

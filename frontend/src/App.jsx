@@ -5,6 +5,8 @@ import Footer from './components/Footer';
 import { AuthProvider } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
 import CartDrawer from './components/CartDrawer';
+import SplashScreen from './components/SplashScreen';
+import { useState } from 'react';
 
 import Home from './pages/Home';
 import ExperienceList from './pages/ExperienceList';
@@ -49,8 +51,17 @@ const ConditionalFooter = () => {
   return <Footer />;
 };
 function App() {
+  const [showSplash, setShowSplash] = useState(true);
+
   return (
-    <AuthProvider>
+    <>
+      {showSplash && <SplashScreen onComplete={() => setShowSplash(false)} />}
+      
+      {/* We keep the app rendering in the background or completely hidden 
+          but usually rendering it behind the fixed splash screen is fine 
+          and helps it load resources early. */}
+      <div style={{ display: showSplash ? 'none' : 'block' }}>
+        <AuthProvider>
       <Router>
         <CartProvider>
           <ScrollToTop />
@@ -84,10 +95,12 @@ function App() {
               <Route path="/contact" element={<Contact />} />
             </Routes>
           </main>
-          <ConditionalFooter />
-        </CartProvider>
-      </Router>
-    </AuthProvider>
+            <ConditionalFooter />
+          </CartProvider>
+        </Router>
+      </AuthProvider>
+      </div>
+    </>
   );
 }
 

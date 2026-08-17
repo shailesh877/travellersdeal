@@ -7,6 +7,8 @@ import ExperienceDetail from "../../components/ExperienceDetail";
 import { API_URL } from "../../constants/Config";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, router } from "expo-router";
+import { getDisplayPrice } from "../../utils/currency";
+import { getImageUrl } from "../../utils/image";
 
 const { width } = Dimensions.get('window');
 
@@ -32,7 +34,6 @@ export default function CartScreen() {
     const [isBookingFlowVisible, setIsBookingFlowVisible] = useState(false);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-    const [total, setTotal] = useState(0);
 
     const fetchCart = async () => {
         try {
@@ -52,7 +53,6 @@ export default function CartScreen() {
             const data = await response.json();
             if (response.ok) {
                 setCartItems(data.items || []);
-                setTotal(data.total || 0);
             }
         } catch (error) {
             console.error("Error fetching cart:", error);
@@ -97,7 +97,6 @@ export default function CartScreen() {
             const data = await response.json();
             if (response.ok) {
                 setCartItems(data.items || []);
-                setTotal(data.total || 0);
             }
         } catch (error) {
             console.error("Error updating quantity:", error);
@@ -120,13 +119,13 @@ export default function CartScreen() {
             const data = await response.json();
             if (response.ok) {
                 setCartItems(data.items || []);
-                setTotal(data.total || 0);
             }
         } catch (error) {
             console.error("Error removing item:", error);
         }
     };
 
+    const total = cartItems.reduce((sum, item) => sum + (getDisplayPrice(item.experience) * item.quantity), 0);
     const taxes = Math.round(total * 0.18);
     const grandTotal = total + taxes;
 
@@ -138,8 +137,8 @@ export default function CartScreen() {
         title: firstItem.experience.title || 'Cart Checkout',
         category: firstItem.experience.category || 'Experience',
         images: firstItem.experience.images || [],
-        image: firstItem.experience.images?.[0] || '',
-        price: String(firstItem.priceAtAdd),
+        image: getImageUrl(firstItem.experience) || '',
+        price: String(getDisplayPrice(firstItem.experience)),
         currency: 'INR',
         rating: 0,
         numReviews: 0,
@@ -149,7 +148,7 @@ export default function CartScreen() {
         <View className="bg-white dark:bg-[#1c1c1e] rounded-3xl p-4 mb-4 border border-gray-100 dark:border-gray-800 shadow-sm">
             <View className="flex-row">
                 <TouchableOpacity onPress={() => setSelectedExperience(item.experience)}>
-                    <Image source={{ uri: item.experience?.images?.[0] || 'https://via.placeholder.com/150' }} className="w-24 h-24 rounded-2xl bg-gray-200" />
+                    <Image source={{ uri: getImageUrl(item.experience) || 'https://via.placeholder.com/150' }} className="w-24 h-24 rounded-2xl bg-gray-200" />
                 </TouchableOpacity>
 
                 <View className="flex-1 ml-4 justify-between">
@@ -160,7 +159,7 @@ export default function CartScreen() {
                                 <Ionicons name="trash-outline" size={18} color="#ef4444" />
                             </TouchableOpacity>
                         </View>
-                        <Text className="text-gray-900 dark:text-white font-bold text-sm mt-1" numberOfLines={2}>{item.experience?.title || 'Untitled'}</Text>
+                        <Text className="text-gray-900 dark:text-white font-medium text-xs mt-1" numberOfLines={2}>{item.experience?.title || 'Untitled'}</Text>
                         <View className="flex-row items-center mt-1">
                             <Ionicons name="calendar-outline" size={12} color="#6b7280" />
                             <Text className="text-gray-500 dark:text-gray-400 text-[11px] ml-1">{new Date(item.date).toDateString()}</Text>
@@ -168,7 +167,7 @@ export default function CartScreen() {
                     </View>
 
                     <View className="flex-row justify-between items-center mt-2">
-                        <Text className="text-[#002b5c] dark:text-[#58a6ff] font-black text-base">₹{item.priceAtAdd * item.quantity}</Text>
+                        <Text className="text-[#002b5c] dark:text-[#58a6ff] font-black text-base">₹{getDisplayPrice(item.experience) * item.quantity}</Text>
 
                         <View className="flex-row items-center bg-gray-50 dark:bg-gray-800 rounded-full border border-gray-100 dark:border-gray-700 px-2 py-1">
                             <TouchableOpacity onPress={() => updateQuantity(item._id, item.quantity - 1)} className="w-8 h-8 items-center justify-center">

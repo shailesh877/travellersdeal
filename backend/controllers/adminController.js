@@ -153,7 +153,7 @@ const getUserDetails = async (req, res) => {
         const bookings = await Booking.find({ user: req.params.id })
             .populate({
                 path: 'experience',
-                select: 'title images location price category vendor',
+                select: 'title images location pricingCategories category vendor',
                 populate: { path: 'vendor', select: 'name email vendorDetails' }
             })
             .sort({ createdAt: -1 });
@@ -211,10 +211,14 @@ const getAllExperiences = async (req, res) => {
 const verifyExperience = async (req, res) => {
     try {
         const { status } = req.body; // 'approved' or 'rejected'
-        const experience = await Experience.findById(req.params.id);
+        const experience = await Experience.findById(req.params.id).populate('vendor', 'isVerified');
 
         if (!experience) {
             return res.status(404).json({ message: 'Experience not found' });
+        }
+
+        if (status === 'approved' && !experience.vendor?.isVerified) {
+            return res.status(400).json({ message: 'Please verify the vendor first before approving their experience.' });
         }
 
         if (status) {
@@ -233,7 +237,38 @@ const verifyExperience = async (req, res) => {
     }
 };
 
+// @desc    Update Experience details (admin) - e.g., for rating
+// @route   PUT /api/admin/experiences/:id
+// @access  Private/Admin
+const updateExperience = async (req, res) => {
+    try {
+        const { rating, numReviews } = req.body;
+        
+        let updateData = {};
+        if (rating !== undefined && !isNaN(rating)) {
+            updateData.rating = rating;
+            updateData.averageRating = rating;
+        }
+        if (numReviews !== undefined && !isNaN(numReviews)) {
+            updateData.numReviews = numReviews;
+            updateData.reviewsCount = numReviews;
+        }
 
+        const experience = await Experience.findByIdAndUpdate(
+            req.params.id,
+            { $set: updateData },
+            { new: true }
+        );
+
+        if (!experience) {
+            return res.status(404).json({ message: 'Experience not found' });
+        }
+
+        res.json(experience);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
 
 // @desc    Get all bookings (Global Oversight)
 // @route   GET /api/admin/bookings
@@ -405,6 +440,7 @@ module.exports = {
     updateUserStatus,
     getAllExperiences,
     verifyExperience,
+    updateExperience,
     getAllBookings,
     createAdminReview,
     updateAdminReview,

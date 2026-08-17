@@ -12,9 +12,68 @@ const CartDrawer = () => {
 
     const { items = [], total = 0 } = cart;
 
+    const getItemPrice = (item) => {
+        if (item.priceAtAdd && item.priceAtAdd > 0) return item.priceAtAdd;
+        const exp = item.experience;
+        if (exp?.bookingOptions?.length > 0) {
+            const opt = exp.bookingOptions[0];
+            if (opt?.availabilityAndPricing?.pricingTiers?.length > 0) {
+                return opt.availabilityAndPricing.pricingTiers[0].price || 0;
+            }
+            return opt?.availabilityAndPricing?.price || 0;
+        }
+        return exp?.adultPrice || exp?.price || 0;
+    };
+
+    const calculatedTotal = items.reduce((acc, item) => {
+        const itemPrice = getItemPrice(item);
+        return acc + (itemPrice * item.quantity);
+    }, 0);
+
+    const displayTotal = total > 0 ? total : calculatedTotal;
+    const currency = items.length > 0 && items[0].experience?.currency ? items[0].experience.currency : 'USD';
+    const currencySymbol = currency === 'INR' ? '₹' : (currency === 'EUR' ? '€' : (currency === 'GBP' ? '£' : '$'));
+
     const handleCheckout = () => {
         setCartOpen(false);
-        navigate('/checkout');
+        if (items.length === 0) return;
+        
+        if (items.length === 1) {
+            const item = items[0];
+            const exp = item.experience;
+            const itemPrice = getItemPrice(item);
+            navigate('/checkout', {
+                state: {
+                    amount: itemPrice * item.quantity,
+                    experienceTitle: exp?.title,
+                    currency: exp?.currency || 'USD',
+                    experienceId: exp?._id,
+                    date: item.date,
+                    slots: item.quantity,
+                    timeSlot: item.timeSlot,
+                    adultSlots: item.quantity,
+                    childSlots: 0,
+                    adultPrice: itemPrice,
+                    childPrice: 0
+                }
+            });
+        } else {
+            navigate('/checkout', {
+                state: {
+                    amount: displayTotal,
+                    experienceTitle: `Cart Bundle (${items.length} items)`,
+                    currency: currency,
+                    experienceId: items[0]?.experience?._id, // fallback for booking
+                    date: items[0]?.date,
+                    slots: items.reduce((acc, curr) => acc + curr.quantity, 0),
+                    timeSlot: '',
+                    adultSlots: 1, 
+                    childSlots: 0,
+                    adultPrice: displayTotal,
+                    childPrice: 0
+                }
+            });
+        }
     };
 
     return (
@@ -97,7 +156,7 @@ const CartDrawer = () => {
                                             </div>
                                             <div className="flex items-center gap-3">
                                                 <span className="font-bold text-gray-900">
-                                                    {exp?.currency === 'INR' ? '₹' : '$'}{(item.priceAtAdd * item.quantity).toFixed(2)}
+                                                    {exp?.currency === 'INR' ? '₹' : (exp?.currency === 'EUR' ? '€' : (exp?.currency === 'GBP' ? '£' : '$'))}{(getItemPrice(item) * item.quantity).toFixed(2)}
                                                 </span>
                                                 <button onClick={() => removeItem(item._id)} className="text-red-400 hover:text-red-600 transition-colors p-1">
                                                     <FaTrash className="text-xs" />
@@ -116,7 +175,7 @@ const CartDrawer = () => {
                     <div className="border-t border-gray-100 px-6 py-5 space-y-4 bg-white">
                         <div className="flex justify-between items-center">
                             <span className="text-gray-500 font-medium">Total</span>
-                            <span className="text-2xl font-bold text-gray-900">${total.toFixed ? total.toFixed(2) : total}</span>
+                            <span className="text-2xl font-bold text-gray-900">{currencySymbol}{displayTotal.toFixed ? displayTotal.toFixed(2) : displayTotal}</span>
                         </div>
                         <button
                             onClick={handleCheckout}

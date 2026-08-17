@@ -47,9 +47,14 @@ const createReview = async (req, res) => {
 
         // Update Experience rating
         const reviews = await Review.find({ experience: experienceId });
-        experience.numReviews = reviews.length;
-        experience.averageRating =
-            reviews.reduce((acc, item) => item.rating + acc, 0) / reviews.length;
+        
+        const count = reviews.length;
+        const avgRating = count > 0 ? (reviews.reduce((acc, item) => item.rating + acc, 0) / count) : 0;
+        
+        experience.numReviews = count;
+        experience.reviewsCount = count;
+        experience.averageRating = avgRating;
+        experience.rating = avgRating;
 
         await experience.save();
 

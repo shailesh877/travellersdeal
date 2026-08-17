@@ -38,6 +38,36 @@ export const AuthProvider = ({ children }) => {
         localStorage.removeItem('token');
     };
 
+    useEffect(() => {
+        let intervalId;
+        const checkStatus = async () => {
+            const token = localStorage.getItem('token');
+            if (!token) return;
+            try {
+                // Ping an endpoint to check if token/user is still valid and active
+                await axios.get(`${API_URL}/users/profile`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+            } catch (error) {
+                console.error('Session check failed', error);
+                if (error.response && error.response.status === 401) {
+                    // Automatically log out if session is invalid or deactivated
+                    logout();
+                    window.location.href = '/login';
+                }
+            }
+        };
+
+        if (user) {
+            // Check every 5 seconds
+            intervalId = setInterval(checkStatus, 5000);
+        }
+
+        return () => {
+            if (intervalId) clearInterval(intervalId);
+        };
+    }, [user]);
+
     const refreshUser = async () => {
         try {
             const config = {

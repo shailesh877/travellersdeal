@@ -26,13 +26,12 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 // General Middleware
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // CORS Configuration (Must be before Rate Limiting)
 const corsOptions = {
-  origin: process.env.NODE_ENV === 'production'
-    ? ['https://travellersdeal.com', 'http://localhost:3000', 'http://localhost:5173', 'null'] // Production frontend + local dev + mobile
-    : '*',
+  origin: true,
   credentials: true,
 };
 app.use(cors(corsOptions));
@@ -46,9 +45,28 @@ const limiter = rateLimit({
 app.use(limiter);
 
 // Database Connection
-mongoose.connect(process.env.MONGO_URI)
+const dbOptions = {
+  serverSelectionTimeoutMS: 5000, // Keep trying to connect for 5 seconds before timeout
+  socketTimeoutMS: 45000, // Close sockets after 45 seconds of inactivity
+  family: 4, // Use IPv4, skip trying IPv6 (speeds up connection on some networks)
+};
+
+mongoose.connect(process.env.MONGO_URI, dbOptions)
   .then(() => console.log('MongoDB Connected'))
   .catch(err => console.error('MongoDB Connection Error:', err));
+
+// Log connection events
+mongoose.connection.on('disconnected', () => {
+  console.log('MongoDB disconnected! Attempting to reconnect...');
+});
+
+mongoose.connection.on('reconnected', () => {
+  console.log('MongoDB reconnected!');
+});
+
+mongoose.connection.on('error', err => {
+  console.error('MongoDB connection error event:', err);
+});
 
 // Routes
 app.get('/', (req, res) => {
@@ -65,6 +83,7 @@ const reviewRoutes = require('./routes/reviewRoutes');
 const userRoutes = require('./routes/userRoutes');
 const cartRoutes = require('./routes/cartRoutes');
 const homepageRoutes = require('./routes/homepageRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
 const path = require('path');
 
 app.use('/api/auth', authRoutes);
@@ -77,6 +96,7 @@ app.use('/api/reviews', reviewRoutes); // Reviews
 app.use('/api/users', userRoutes);
 app.use('/api/cart', cartRoutes);
 app.use('/api/homepage', homepageRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 
 // Use __dirname for consistent path resolution regardless of CWD

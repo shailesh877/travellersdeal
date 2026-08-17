@@ -8,13 +8,11 @@ const {
     deleteExperience,
     getMyExperiences,
     getAvailability,
-    getTopDestinations,
 } = require('../controllers/experienceController');
 const { protect, vendor, protectOptional } = require('../middleware/authMiddleware');
 
 router.route('/').get(getExperiences).post(protect, vendor, createExperience);
 router.route('/my').get(protect, vendor, getMyExperiences);
-router.get('/destinations', getTopDestinations); // Get top destinations
 router.get('/:id/availability', getAvailability); // Check availability
 router
     .route('/:id')

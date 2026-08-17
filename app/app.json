@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "travellersdeal",
+    "name": "TravellersDeal",
     "slug": "travellersdeal",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -20,7 +20,8 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.babbukallu.travellersdeal"
+      "package": "com.babbukallu.travellersdeal",
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "output": "static",
@@ -31,19 +32,26 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 200,
+          "image": "./assets/images/android-icon-foreground.png",
+          "imageWidth": 230,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff",
           "dark": {
             "backgroundColor": "#000000"
           }
         }
-      ]
+      ],
+      "expo-localization"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "c9e6c9cb-e4a1-49af-8f81-352a5da19634"
+      }
     }
   }
 }

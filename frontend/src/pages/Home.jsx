@@ -14,7 +14,6 @@ const Home = () => {
     const [testimonials, setTestimonials] = useState([]);
     const [loading, setLoading] = useState(true);
     const [scrolled, setScrolled] = useState(false);
-    const [activeTab, setActiveTab] = useState('Top attractions worldwide');
     const navigate = useNavigate();
     const testimonialsRef = useRef(null);
 
@@ -33,8 +32,8 @@ const Home = () => {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const { data } = await axios.get(`${API_URL}/experiences?pageNumber=1`);
-                setFeaturedExperiences(data.experiences ? data.experiences.slice(0, 8) : []);
+                const { data } = await axios.get(`${API_URL}/experiences?pageNumber=1&limit=8`);
+                setFeaturedExperiences(data.experiences ? data.experiences : []);
 
                 const [destRes, attrRes, testimonialRes] = await Promise.all([
                     axios.get(`${API_URL}/homepage/destinations`),
@@ -91,7 +90,7 @@ const Home = () => {
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
                         </div>
-                        <div className={`flex-1 flex items-center w-full hidden md:flex transition-all ${scrolled ? 'px-3 py-1.5' : 'px-4 py-3'}`}>
+                        <div className={`flex-1 flex items-center w-full transition-all ${scrolled ? 'px-3 py-1.5' : 'px-4 py-3'}`}>
                             <FaCalendarAlt className={`text-gray-400 mr-3 ${scrolled ? 'text-lg' : 'text-xl'}`} />
                             <input
                                 type="date"
@@ -115,7 +114,7 @@ const Home = () => {
                 <h2 className="text-2xl md:text-3xl font-bold text-[#1a2b49] mb-6">Things to do wherever you're going</h2>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
                     {destinations.map(dest => (
-                        <Link to={`/experiences?keyword=${dest.city}`} key={dest.city} className="group cursor-pointer block">
+                        <Link to={`/experiences?keyword=${encodeURIComponent(dest.city)}`} key={dest.city} className="group cursor-pointer block">
                             <div className="relative aspect-square rounded-xl overflow-hidden mb-3">
                                 <img
                                     src={dest.image}
@@ -136,7 +135,7 @@ const Home = () => {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     {attractions.map((attr, idx) => (
-                        <Link to="/experiences" key={idx} className={`group cursor-pointer block${idx === attractions.length - 1 ? ' relative' : ''}`}>
+                        <Link to={`/experiences?keyword=${encodeURIComponent(attr.title)}`} key={idx} className={`group cursor-pointer block${idx === attractions.length - 1 ? ' relative' : ''}`}>
                             <div className="relative h-48 md:h-56 rounded-xl overflow-hidden mb-3">
                                 <img src={attr.image} alt={attr.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                                 {idx === attractions.length - 1 && (
@@ -233,7 +232,7 @@ const Home = () => {
 
             {/* Top Rated Experiences */}
             <div className="max-w-[1240px] mx-auto px-4 md:px-8 mt-16">
-                <div className="flex justify-between items-end mb-8">
+                <div className="flex flex-wrap gap-4 justify-between items-end mb-8">
                     <div>
                         <h2 className="text-3xl font-bold text-gray-900 mb-2">Top Rated Experiences</h2>
                         <p className="text-gray-500">Unforgettable activities for your next trip</p>

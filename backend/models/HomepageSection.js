@@ -7,3 +7,4 @@ const homepageSectionSchema = new mongoose.Schema({
 
 // Do NOT call ensureIndexes automatically - avoids buffering timeouts
 module.exports = mongoose.model('HomepageSection', homepageSectionSchema);
+

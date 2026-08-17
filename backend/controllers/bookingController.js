@@ -1,5 +1,10 @@
 const Booking = require('../models/Booking');
 const Experience = require('../models/Experience');
+const User = require('../models/User');
+const Notification = require('../models/Notification');
+const { Expo } = require('expo-server-sdk');
+
+let expo = new Expo();
 
 // @desc    Create new booking
 // @route   POST /api/bookings
@@ -20,7 +25,8 @@ const createBooking = async (req, res) => {
         }
 
         // Use totalPrice sent by client (accounts for adultCount); fallback to calculation
-        const totalPrice = (clientTotalPrice != null) ? clientTotalPrice : (experience.price * (slots || 1));
+        const basePrice = experience.pricingCategories && experience.pricingCategories.length > 0 ? experience.pricingCategories[0].price : 0;
+        const totalPrice = (clientTotalPrice != null) ? clientTotalPrice : (basePrice * (slots || 1));
 
         const booking = new Booking({
             user: req.user._id,
@@ -49,7 +55,7 @@ const getMyBookings = async (req, res) => {
     try {
         const bookings = await Booking.find({ user: req.user._id }).populate(
             'experience',
-            'title price images itinerary location duration'
+            'title pricingCategories images itinerary location duration'
         );
         res.json(bookings);
     } catch (error) {
@@ -134,6 +140,40 @@ const updateBookingStatus = async (req, res) => {
 
         booking.status = status;
         const updatedBooking = await booking.save();
+
+        // Create In-App Notification
+        try {
+            await Notification.create({
+                user: booking.user,
+                title: 'Booking Update',
+                message: `Your booking for ${booking.experience.title} is now ${status}.`,
+                type: 'booking_update',
+                data: { bookingId: booking._id, status: status }
+            });
+        } catch (dbErr) {
+            console.error('Error saving notification to DB:', dbErr);
+        }
+
+        // Send Push Notification to the user
+        try {
+            const bookingUser = await User.findById(booking.user);
+            if (bookingUser && bookingUser.expoPushToken && Expo.isExpoPushToken(bookingUser.expoPushToken)) {
+                let messages = [{
+                    to: bookingUser.expoPushToken,
+                    sound: 'default',
+                    title: 'Booking Update',
+                    body: `Your booking for ${booking.experience.title} is now ${status}.`,
+                    data: { bookingId: booking._id, status: status },
+                }];
+                
+                let chunks = expo.chunkPushNotifications(messages);
+                for (let chunk of chunks) {
+                    await expo.sendPushNotificationsAsync(chunk);
+                }
+            }
+        } catch (pushError) {
+            console.error('Error sending push notification:', pushError);
+        }
 
         res.json(updatedBooking);
     } catch (error) {

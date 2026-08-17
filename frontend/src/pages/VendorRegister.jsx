@@ -80,7 +80,8 @@ const VendorRegister = () => {
             localStorage.setItem('user', JSON.stringify(data));
             localStorage.setItem('token', data.token);
 
-            navigate('/vendor/dashboard');
+            alert('Registration Successful! Redirecting to your dashboard...');
+            window.location.href = '/vendor/dashboard';
         } catch (err) {
             setError(err.response?.data?.message || 'Registration failed');
         } finally {
@@ -140,13 +141,13 @@ const VendorRegister = () => {
                                     <div
                                         key={type.id}
                                         onClick={() => setFormData({ ...formData, businessType: type.id })}
-                                        className={`flex items-start p-4 rounded-xl border-2 cursor-pointer transition-all ${formData.businessType === type.id ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'}`}
+                                        className={`flex items-start p-4 rounded-xl border-2 cursor-pointer transition-all ${formData.businessType === type.id ? 'border-blue-600 bg-blue-50 ring-1 ring-blue-600' : 'border-blue-200 hover:border-blue-400 hover:bg-blue-50'}`}
                                     >
-                                        <div className={`mt-1 p-2 rounded-lg ${formData.businessType === type.id ? 'bg-primary text-white' : 'bg-gray-100 text-gray-500'}`}>
+                                        <div className={`mt-1 p-2 rounded-lg ${formData.businessType === type.id ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-500'}`}>
                                             <type.icon />
                                         </div>
                                         <div className="ml-4">
-                                            <h4 className={`text-base font-bold ${formData.businessType === type.id ? 'text-primary' : 'text-gray-900'}`}>{type.label}</h4>
+                                            <h4 className={`text-base font-bold ${formData.businessType === type.id ? 'text-blue-600' : 'text-gray-900'}`}>{type.label}</h4>
                                             <p className="text-sm text-gray-500 mt-1">{type.desc}</p>
                                         </div>
                                     </div>
@@ -157,7 +158,7 @@ const VendorRegister = () => {
                                 <button
                                     onClick={handleNext}
                                     disabled={!formData.businessType}
-                                    className={`px-8 py-3 rounded-full font-bold text-white transition-all ${!formData.businessType ? 'bg-gray-300 cursor-not-allowed' : 'bg-primary hover:bg-cyan-600 shadow-lg'}`}
+                                    className={`px-8 py-3 rounded-full font-bold text-white transition-all duration-300 ${!formData.businessType ? 'bg-gray-300 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-800 shadow-lg'}`}
                                 >
                                     Continue
                                 </button>
@@ -239,7 +240,7 @@ const VendorRegister = () => {
                                 <button
                                     onClick={handleNext}
                                     disabled={!formData.activityCount || (formData.hasReservationSystem && !formData.reservationSystem)}
-                                    className={`px-8 py-3 rounded-full font-bold text-white transition-all ${!formData.activityCount || (formData.hasReservationSystem && !formData.reservationSystem) ? 'bg-gray-300 cursor-not-allowed' : 'bg-primary hover:bg-cyan-600 shadow-lg'}`}
+                                    className={`px-8 py-3 rounded-full font-bold text-white transition-all duration-300 ${!formData.activityCount || (formData.hasReservationSystem && !formData.reservationSystem) ? 'bg-gray-300 cursor-not-allowed' : 'bg-blue-400 hover:bg-blue-800 shadow-lg'}`}
                                 >
                                     Continue
                                 </button>
@@ -389,7 +390,7 @@ const VendorRegister = () => {
                                 <button
                                     type="submit"
                                     disabled={loading || !formData.agreeToTerms}
-                                    className={`px-8 py-3 rounded-full font-bold text-white transition-all ${loading || !formData.agreeToTerms ? 'bg-gray-300 cursor-not-allowed' : 'bg-primary hover:bg-cyan-600 shadow-lg'}`}
+                                    className={`px-8 py-3 rounded-full font-bold text-white transition-all duration-300 ${loading || !formData.agreeToTerms ? 'bg-gray-300 cursor-not-allowed' : 'bg-blue-400 hover:bg-blue-800 shadow-lg'}`}
                                 >
                                     {loading ? 'Creating...' : 'Create an account'}
                                 </button>

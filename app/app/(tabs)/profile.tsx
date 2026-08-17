@@ -38,8 +38,12 @@ export default function ProfileScreen() {
 
         // Fetch app store links from backend
         fetch(`${API_URL}/admin/settings`)
-            .then(r => r.json())
-            .then(data => setAppSettings(data))
+            .then(r => { if (r.ok) return r.json(); throw new Error('not ok'); })
+            .then(data => {
+                if (data && (data.playStoreUrl || data.appStoreUrl || data.feedbackUrl)) {
+                    setAppSettings(data);
+                }
+            })
             .catch(() => { }); // silently ignore if backend not updated yet
     }, []);
 
@@ -167,18 +171,28 @@ export default function ProfileScreen() {
                 {/* FEEDBACK SECTION */}
                 {renderSectionHeader(t('feedback'))}
                 <View>
-                    {renderRow("Leave feedback", undefined, false, true, () => {
+                    {renderRow("Leave feedback", undefined, false, true, async () => {
                         const url = appSettings?.feedbackUrl ||
-                            (Platform.OS === 'android' ? appSettings?.playStoreUrl : appSettings?.appStoreUrl);
-                        if (url) Linking.openURL(url);
-                        else Alert.alert('Coming Soon', 'Feedback link will be available soon.');
+                            (Platform.OS === 'android'
+                                ? (appSettings?.playStoreUrl || 'https://play.google.com/store/search?q=travellersdeal&c=apps')
+                                : (appSettings?.appStoreUrl || 'https://apps.apple.com/search?term=travellersdeal'));
+                        if (url && url.startsWith('http')) {
+                            try { await Linking.openURL(url); } catch { Alert.alert('Error', 'Could not open the link.'); }
+                        } else {
+                            Alert.alert('Coming Soon', 'Feedback link will be available soon.');
+                        }
                     })}
-                    {renderRow("Rate the app", undefined, false, true, () => {
-                        const url = Platform.OS === 'android'
+                    {renderRow("Rate the app", undefined, false, true, async () => {
+                        const raw = Platform.OS === 'android'
                             ? appSettings?.playStoreUrl
                             : appSettings?.appStoreUrl;
-                        if (url) Linking.openURL(url);
-                        else Alert.alert('Coming Soon', 'App store link will be available soon.');
+                        // Use admin URL only if it's a valid http link, else fallback
+                        const url = (raw && raw.startsWith('http'))
+                            ? raw
+                            : Platform.OS === 'android'
+                                ? 'https://play.google.com/store/search?q=travellersdeal&c=apps'
+                                : 'https://apps.apple.com/search?term=travellersdeal';
+                        try { await Linking.openURL(url); } catch { Alert.alert('Error', 'Could not open the store link.'); }
                     })}
                 </View>
 

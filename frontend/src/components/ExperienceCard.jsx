@@ -1,12 +1,47 @@
-import React, { useContext } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { FaStar, FaHeart, FaRegHeart } from 'react-icons/fa';
+import { FaStar, FaHeart, FaRegHeart, FaEye } from 'react-icons/fa';
 import { AuthContext } from '../context/AuthContext';
 import axios from 'axios';
 import { API_URL } from '../config/api';
 
+const getBasePrice = (e) => {
+    if (e.bookingOptions?.[0]?.availabilityAndPricing?.pricingTiers?.length > 0) {
+        const tiers = e.bookingOptions[0].availabilityAndPricing.pricingTiers;
+        const adultTier = tiers.find(t => t.title.toLowerCase() === 'adult');
+        return adultTier ? adultTier.price : tiers[0].price;
+    }
+    if (e.pricingCategories?.length > 0) {
+        const adultCat = e.pricingCategories.find(c => c.category.toLowerCase() === 'adult');
+        if (adultCat) return adultCat.price;
+    }
+    return e.adultPrice || e.price || 0;
+};
+
 const ExperienceCard = ({ experience }) => {
     const { user, refreshUser } = useContext(AuthContext);
+    const [reviews, setReviews] = useState([]);
+
+    useEffect(() => {
+        const fetchReviews = async () => {
+            if (experience && experience._id) {
+                try {
+                    const { data } = await axios.get(`${API_URL}/reviews/${experience._id}`);
+                    setReviews(data);
+                } catch (error) {
+                    console.error('Error fetching reviews for card:', error);
+                }
+            }
+        };
+        fetchReviews();
+    }, [experience]);
+
+    // Calculate rating from reviews explicitly if backend doesn't sync perfectly immediately
+    const displayRating = reviews.length > 0
+        ? (reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length).toFixed(1)
+        : (experience.averageRating || experience.rating || '0.0');
+
+    const displayCount = reviews.length > 0 ? reviews.length : experience.reviewsCount || experience.numReviews || 0;
 
     // Check if in wishlist (handle populated or objectId array)
     const isInWishlist = user?.wishlist?.some(item =>
@@ -63,13 +98,14 @@ const ExperienceCard = ({ experience }) => {
                 </div>
 
                 <div className="p-4 flex flex-col flex-grow">
-                    <div className="flex items-center gap-1 mb-2">
+                    <div className="flex items-center flex-wrap gap-1 mb-2">
                         <div className="flex text-yellow-500 text-sm">
                             {[...Array(5)].map((_, i) => (
-                                <FaStar key={i} className={i < Math.floor(experience.rating || 0) ? "text-yellow-400" : "text-gray-300"} />
+                                <FaStar key={i} className={i < Math.floor(displayRating) ? "text-yellow-500" : "text-gray-300"} />
                             ))}
                         </div>
-                        <span className="text-gray-500 text-xs">({experience.reviewsCount || 0})</span>
+                        <span className="font-bold text-gray-900 text-sm ml-1">{displayRating}</span>
+                        <span className="text-gray-900 text-xs underline decoration-gray-900 underline-offset-2 ml-1 font-medium hover:text-primary hover:decoration-primary transition-colors">{displayCount} reviews</span>
                         <span className="text-gray-400 text-xs mx-1">•</span>
                         <span className="text-gray-500 text-xs">{experience.duration}</span>
                     </div>
@@ -78,14 +114,20 @@ const ExperienceCard = ({ experience }) => {
                         {experience.title}
                     </h3>
 
-                    <div className="mt-auto flex items-end justify-between">
-                        <div className="text-gray-500 text-xs text-left">Free cancellation available</div>
-                        <div className="text-right">
-                            <div className="text-xs text-gray-500">From</div>
-                            <div className="font-bold text-lg text-gray-900">
-                                {experience.currency === 'INR' ? '₹' : '$'}{experience.price}
-                            </div>
+                    <div className="mt-auto pt-3 border-t border-gray-100 flex items-center justify-between">
+                        <div>
+                            <span className="text-[10px] text-gray-400 block font-semibold">From</span>
+                            <span className="font-bold text-lg text-gray-900">
+                                {(() => {
+                                    const displayPrice = getBasePrice(experience);
+                                    const displayCurrency = experience.bookingOptions?.[0]?.availabilityAndPricing?.currency || experience.currency || 'USD';
+                                    return (displayCurrency === 'INR' ? '₹' : (displayCurrency === 'EUR' ? '€' : (displayCurrency === 'GBP' ? '£' : '$'))) + displayPrice;
+                                })()}
+                            </span>
                         </div>
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-50 text-primary group-hover:bg-primary group-hover:text-white transition-colors text-xs font-bold shadow-sm">
+                            <FaEye size={12} /> View Details
+                        </span>
                     </div>
                 </div>
             </div>

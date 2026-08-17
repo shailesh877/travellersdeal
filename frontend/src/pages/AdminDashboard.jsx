@@ -1,12 +1,25 @@
 import React, { useEffect, useState } from 'react';
 import {
     FaUser, FaMoneyBillWave, FaMapMarkedAlt, FaCalendarCheck,
-    FaChartLine, FaStore, FaUserClock, FaCheckCircle,
+    FaChartLine, FaStore, FaUserClock, FaCheckCircle, FaTimesCircle,
     FaSignOutAlt, FaHome, FaClipboardList, FaImage, FaPlus, FaTrash, FaEdit, FaStar
 } from 'react-icons/fa';
 import axios from 'axios';
 import { API_URL } from '../config/api';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
+
+const getBasePrice = (e) => {
+    if (e.bookingOptions?.[0]?.availabilityAndPricing?.pricingTiers?.length > 0) {
+        const tiers = e.bookingOptions[0].availabilityAndPricing.pricingTiers;
+        const adultTier = tiers.find(t => t.title.toLowerCase() === 'adult');
+        return adultTier ? adultTier.price : tiers[0].price;
+    }
+    if (e.pricingCategories?.length > 0) {
+        const adultCat = e.pricingCategories.find(c => c.category.toLowerCase() === 'adult');
+        if (adultCat) return adultCat.price;
+    }
+    return e.adultPrice || e.price || 0;
+};
 
 const AdminDashboard = () => {
     const navigate = useNavigate();
@@ -21,7 +34,8 @@ const AdminDashboard = () => {
     const [bookings, setBookings] = useState([]);
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState('stats');
+    const location = useLocation();
+    const [activeTab, setActiveTab] = useState(location.state?.activeTab || 'stats');
     const [savingSection, setSavingSection] = useState('');
     const [savedBadge, setSavedBadge] = useState('');
 
@@ -173,7 +187,10 @@ const AdminDashboard = () => {
         const fetchAdminData = async () => {
             try {
                 const token = localStorage.getItem('token');
-                if (!token) return;
+                if (!token) {
+                    navigate('/admin/login');
+                    return;
+                }
 
                 const config = { headers: { Authorization: `Bearer ${token}` } };
 
@@ -192,6 +209,11 @@ const AdminDashboard = () => {
                 setUsers(usersRes.data);
             } catch (error) {
                 console.error('Error fetching admin data:', error);
+                if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('user');
+                    navigate('/admin/login');
+                }
             } finally {
                 setLoading(false);
             }
@@ -241,10 +263,10 @@ const AdminDashboard = () => {
     };
 
     const cards = [
-        { title: 'Total Revenue', value: `$${stats.totalRevenue ? stats.totalRevenue.toLocaleString() : '0'}`, icon: <FaMoneyBillWave />, color: 'bg-green-500' },
-        { title: 'Total Bookings', value: stats.bookingCount, icon: <FaCalendarCheck />, color: 'bg-blue-500' },
-        { title: 'Experiences', value: stats.experienceCount, icon: <FaMapMarkedAlt />, color: 'bg-orange-500' },
-        { title: 'Registered Users', value: stats.userCount, icon: <FaUser />, color: 'bg-purple-500' },
+        { title: 'Total Revenue', value: `$${stats.totalRevenue ? stats.totalRevenue.toLocaleString() : '0'}`, icon: <FaMoneyBillWave />, color: 'bg-green-500', tab: 'bookings' },
+        { title: 'Total Bookings', value: stats.bookingCount, icon: <FaCalendarCheck />, color: 'bg-blue-500', tab: 'bookings' },
+        { title: 'Experiences', value: stats.experienceCount, icon: <FaMapMarkedAlt />, color: 'bg-orange-500', tab: 'active-experiences' },
+        { title: 'Registered Users', value: stats.userCount, icon: <FaUser />, color: 'bg-purple-500', tab: 'users' },
     ];
 
     const filteredVendors = vendors.filter(v => {
@@ -254,6 +276,7 @@ const AdminDashboard = () => {
     });
 
     const pendingExperiences = experiences.filter(e => e.status === 'pending');
+    const rejectedExperiences = experiences.filter(e => e.status === 'rejected');
     const pendingVendorsCount = vendors.filter(v => !v.isVerified).length;
 
     if (loading) {
@@ -287,7 +310,7 @@ const AdminDashboard = () => {
     return (
         <div className="min-h-screen bg-gray-100 flex pt-16">
             {/* Sidebar */}
-            <aside className="w-64 bg-white shadow-xl z-10 hidden md:flex flex-col">
+            <aside className="w-64 bg-white shadow-xl z-10 hidden md:flex flex-col sticky top-16 h-[calc(100vh-4rem)] overflow-y-auto">
                 <div className="p-6 border-b border-gray-100">
                     <div className="flex items-center gap-2 text-blue-600 font-bold text-xl">
                         <FaMapMarkedAlt />
@@ -303,11 +326,15 @@ const AdminDashboard = () => {
                     <div className="px-6 pb-2 pt-6 text-xs font-semibold text-gray-400 uppercase tracking-wider">Management</div>
                     <NavItem id="users" icon={FaUser} label="Users Management" />
                     <NavItem id="bookings" icon={FaClipboardList} label="Booking Ledger" />
-                    <NavItem id="content" icon={FaCheckCircle} label="Content Moderation" count={pendingExperiences.length} />
+                    
+                    <div className="px-6 pb-2 pt-6 text-xs font-semibold text-gray-400 uppercase tracking-wider">Experiences</div>
+                    <NavItem id="content" icon={FaCheckCircle} label="Pending Experiences" count={pendingExperiences.length} />
+                    <NavItem id="rejected" icon={FaTimesCircle} label="Rejected Experiences" count={rejectedExperiences.length} />
+                    <NavItem id="active-experiences" icon={FaMapMarkedAlt} label="Active Experiences" />
 
                     <div className="px-6 pb-2 pt-6 text-xs font-semibold text-gray-400 uppercase tracking-wider">Partners</div>
-                    <NavItem id="pending" icon={FaUserClock} label="Pending Requests" count={pendingVendorsCount} />
-                    <NavItem id="verified" icon={FaStore} label="Verified Vendors" />
+                    <NavItem id="pending" icon={FaUserClock} label="Pending Vendors" count={pendingVendorsCount} />
+                    <NavItem id="verified" icon={FaStore} label="Active Vendors" />
 
                     <div className="px-6 pb-2 pt-6 text-xs font-semibold text-gray-400 uppercase tracking-wider">Content</div>
                     <NavItem id="homepage" icon={FaImage} label="Homepage Sections" />
@@ -347,7 +374,9 @@ const AdminDashboard = () => {
                             {activeTab === 'stats' && 'Dashboard Overview'}
                             {activeTab === 'users' && 'Users Management'}
                             {activeTab === 'bookings' && 'Global Booking Ledger'}
-                            {activeTab === 'content' && 'Experience Moderation'}
+                            {activeTab === 'content' && 'Pending Experiences'}
+                            {activeTab === 'rejected' && 'Rejected Experiences'}
+                            {activeTab === 'active-experiences' && 'Active Experiences'}
                             {activeTab === 'pending' && 'Vendor Approval Queue'}
                             {activeTab === 'verified' && 'Active Vendor Partners'}
                             {activeTab === 'applinks' && '📱 App Store Links'}
@@ -361,7 +390,11 @@ const AdminDashboard = () => {
                         <>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                                 {cards.map((card, index) => (
-                                    <div key={index} className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 flex items-center justify-between hover:shadow-md transition-shadow">
+                                    <div 
+                                        key={index} 
+                                        onClick={() => card.tab && setActiveTab(card.tab)}
+                                        className={`bg-white p-6 rounded-xl shadow-sm border border-gray-200 flex items-center justify-between transition-all ${card.tab ? 'cursor-pointer hover:shadow-md hover:border-blue-300' : ''}`}
+                                    >
                                         <div>
                                             <p className="text-sm text-gray-500 font-medium mb-1">{card.title}</p>
                                             <h3 className="text-2xl font-bold text-gray-800">{card.value}</h3>
@@ -398,7 +431,7 @@ const AdminDashboard = () => {
                         </>
                     )}
 
-                    {activeTab === 'content' && (
+                    {(activeTab === 'content' || activeTab === 'active-experiences' || activeTab === 'rejected') && (
                         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                             <table className="w-full text-left">
                                 <thead className="bg-gray-50 text-gray-600 font-bold uppercase text-xs border-b">
@@ -411,28 +444,78 @@ const AdminDashboard = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">
-                                    {pendingExperiences.length > 0 ? pendingExperiences.map(e => (
-                                        <tr key={e._id} className="hover:bg-gray-50 transition-colors">
-                                            <td className="px-6 py-4">
-                                                <div className="font-bold text-gray-900">{e.title}</div>
-                                                <div className="text-xs text-gray-500">{e.location.city}</div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <div className="font-medium text-gray-900">{e.vendor?.name}</div>
-                                                <div className="text-xs text-gray-500">{e.vendor?.email}</div>
-                                            </td>
-                                            <td className="px-6 py-4 font-bold text-gray-900">${e.price}</td>
-                                            <td className="px-6 py-4">
-                                                <span className="bg-orange-100 text-orange-700 text-xs px-2 py-1 rounded-full font-bold uppercase">Pending</span>
-                                            </td>
-                                            <td className="px-6 py-4 text-right">
-                                                <a href={`/admin/experience/${e._id}`} className="inline-block bg-blue-600 text-white text-xs font-bold px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
-                                                    Review
-                                                </a>
-                                            </td>
-                                        </tr>
-                                    )) : (
-                                        <tr><td colSpan="5" className="px-6 py-12 text-center text-gray-500">No pending experiences.</td></tr>
+                                    {activeTab === 'content' ? (
+                                        pendingExperiences.length > 0 ? pendingExperiences.map(e => (
+                                            <tr key={e._id} className="hover:bg-gray-50 transition-colors">
+                                                <td className="px-6 py-4">
+                                                    <div className="font-bold text-gray-900">{e.title}</div>
+                                                    <div className="text-xs text-gray-500">{e.location?.city}</div>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className="font-medium text-gray-900">{e.vendor?.name}</div>
+                                                    <div className="text-xs text-gray-500">{e.vendor?.email}</div>
+                                                </td>
+                                                <td className="px-6 py-4 font-bold text-gray-900">{e.bookingOptions?.[0]?.availabilityAndPricing?.currency || e.currency || '$'} {getBasePrice(e)}</td>
+                                                <td className="px-6 py-4">
+                                                    <span className="bg-orange-100 text-orange-700 text-xs px-2 py-1 rounded-full font-bold uppercase">Pending</span>
+                                                </td>
+                                                <td className="px-6 py-4 text-right">
+                                                    <a href={`/admin/experience/${e._id}`} className="inline-block bg-blue-600 text-white text-xs font-bold px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                                                        Review
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                        )) : (
+                                            <tr><td colSpan="5" className="px-6 py-12 text-center text-gray-500">No pending experiences.</td></tr>
+                                        )
+                                    ) : activeTab === 'rejected' ? (
+                                        rejectedExperiences.length > 0 ? rejectedExperiences.map(e => (
+                                            <tr key={e._id} className="hover:bg-gray-50 transition-colors">
+                                                <td className="px-6 py-4">
+                                                    <div className="font-bold text-gray-900">{e.title}</div>
+                                                    <div className="text-xs text-gray-500">{e.location?.city}</div>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className="font-medium text-gray-900">{e.vendor?.name}</div>
+                                                    <div className="text-xs text-gray-500">{e.vendor?.email}</div>
+                                                </td>
+                                                <td className="px-6 py-4 font-bold text-gray-900">{e.bookingOptions?.[0]?.availabilityAndPricing?.currency || e.currency || '$'} {getBasePrice(e)}</td>
+                                                <td className="px-6 py-4">
+                                                    <span className="bg-red-100 text-red-700 text-xs px-2 py-1 rounded-full font-bold uppercase">Rejected</span>
+                                                </td>
+                                                <td className="px-6 py-4 text-right">
+                                                    <a href={`/admin/experience/${e._id}`} className="inline-block bg-blue-600 text-white text-xs font-bold px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                                                        Review
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                        )) : (
+                                            <tr><td colSpan="5" className="px-6 py-12 text-center text-gray-500">No rejected experiences.</td></tr>
+                                        )
+                                    ) : (
+                                        experiences.filter(e => e.status === 'approved').length > 0 ? experiences.filter(e => e.status === 'approved').map(e => (
+                                            <tr key={e._id} className="hover:bg-gray-50 transition-colors">
+                                                <td className="px-6 py-4">
+                                                    <div className="font-bold text-gray-900">{e.title}</div>
+                                                    <div className="text-xs text-gray-500">{e.location?.city}</div>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className="font-medium text-gray-900">{e.vendor?.name}</div>
+                                                    <div className="text-xs text-gray-500">{e.vendor?.email}</div>
+                                                </td>
+                                                <td className="px-6 py-4 font-bold text-gray-900">{e.bookingOptions?.[0]?.availabilityAndPricing?.currency || e.currency || '$'} {getBasePrice(e)}</td>
+                                                <td className="px-6 py-4">
+                                                    <span className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded-full font-bold uppercase">Approved</span>
+                                                </td>
+                                                <td className="px-6 py-4 text-right">
+                                                    <a href={`/admin/experience/${e._id}`} className="inline-block bg-gray-900 text-white text-xs font-bold px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors">
+                                                        Manage
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                        )) : (
+                                            <tr><td colSpan="5" className="px-6 py-12 text-center text-gray-500">No active experiences found.</td></tr>
+                                        )
                                     )}
                                 </tbody>
                             </table>

@@ -1,6 +1,6 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { FaUserCircle, FaBars, FaTimes, FaHeart, FaShoppingCart, FaSearch, FaGlobe } from 'react-icons/fa';
+import { FaUserCircle, FaBars, FaTimes, FaHeart, FaShoppingCart, FaSearch, FaGlobe, FaSignOutAlt, FaUser } from 'react-icons/fa';
 import { AuthContext } from '../context/AuthContext';
 import { CartContext } from '../context/CartContext';
 
@@ -126,19 +126,40 @@ const Header = () => {
                         </div>
 
                         {user ? (
-                            <div className="relative group">
+                            <div className="relative group py-1">
                                 <button className={`flex flex-col lg:flex-row items-center gap-1 lg:gap-2 font-medium ${scrolled || !isHome ? 'text-gray-600 hover:text-primary' : 'text-white'}`}>
                                     <FaUserCircle size={22} className={scrolled || !isHome ? '' : 'text-white'} />
-                                    {!isHome ? (
-                                        <span className="text-[10px] lg:text-sm font-medium">Profile</span>
-                                    ) : (
-                                        <span className="hidden lg:block">{user.name}</span>
-                                    )}
+                                    <span className="text-[10px] lg:text-sm font-medium">{user.name}</span>
                                 </button>
                                 {/* Dropdown */}
-                                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-100 py-2 hidden group-hover:block transition-all opacity-0 group-hover:opacity-100 transform origin-top-right">
-                                    <Link to="/profile" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-primary">Profile</Link>
-                                    <button onClick={handleLogout} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-red-500">Log Out</button>
+                                <div className="absolute right-0 top-full pt-4 w-60 opacity-0 invisible translate-y-3 group-hover:opacity-100 group-hover:visible group-hover:translate-y-0 transition-all duration-300 transform origin-top-right z-50">
+                                    <div className="bg-white rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] border border-gray-100 relative">
+                                        {/* Triangle Indicator */}
+                                        <div className="absolute -top-2 right-6 w-4 h-4 bg-white transform rotate-45 border-l border-t border-gray-100 rounded-sm"></div>
+
+                                        {/* User Details Header */}
+                                        <div className="px-5 py-4 border-b border-gray-100 bg-gray-50/50 rounded-t-xl">
+                                            <p className="text-sm font-bold text-gray-900 truncate">{user.name}</p>
+                                            <p className="text-xs text-gray-500 truncate mt-0.5">{user.email || 'User Account'}</p>
+                                        </div>
+
+                                        {/* Actions */}
+                                        <div className="py-2">
+                                            <Link to="/profile" className="group/item flex items-center gap-3 px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-blue-50/50 hover:text-primary transition-colors">
+                                                <div className="p-1.5 bg-gray-100 rounded-lg group-hover/item:bg-blue-100 group-hover/item:text-primary transition-colors">
+                                                    <FaUser className="text-gray-500 group-hover/item:text-primary" />
+                                                </div>
+                                                My Profile
+                                            </Link>
+                                            <div className="h-px bg-gray-100 my-1 mx-4"></div>
+                                            <button onClick={handleLogout} className="group/item w-full flex items-center gap-3 text-left px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-red-50/50 hover:text-red-600 transition-colors rounded-b-xl">
+                                                <div className="p-1.5 bg-gray-100 rounded-lg group-hover/item:bg-red-100 group-hover/item:text-red-600 transition-colors">
+                                                    <FaSignOutAlt className="text-gray-500 group-hover/item:text-red-600" />
+                                                </div>
+                                                Log Out
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         ) : (
@@ -161,8 +182,8 @@ const Header = () => {
             </div>
 
             {/* Mobile Search - Only on non-home pages */}
-            {!isHome && !isOpen && (
-                <div className="md:hidden px-4 pb-3 pt-2">
+            {!isHome && !isOpen && !isAdminRoute && (
+                <div className="md:hidden px-4 pb-3 pt-2 bg-white border-b border-gray-100">
                     <form onSubmit={handleSearch} className="w-full relative flex items-center">
                         <FaSearch className="absolute left-3 text-gray-400" />
                         <input
@@ -189,8 +210,17 @@ const Header = () => {
                             <>
                                 <Link to="/profile" className="flex items-center gap-3 text-xl font-medium text-secondary" onClick={() => setIsOpen(false)}>
                                     <FaUserCircle className="text-primary" />
-                                    Profile
+                                    {user.name}
                                 </Link>
+                                <button onClick={() => { setCartOpen(true); setIsOpen(false); }} className="flex items-center gap-3 text-xl font-medium text-secondary relative text-left">
+                                    <FaShoppingCart className="text-primary" />
+                                    Cart
+                                    {cartCount > 0 && (
+                                        <span className="bg-primary text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center">
+                                            {cartCount > 9 ? '9+' : cartCount}
+                                        </span>
+                                    )}
+                                </button>
                                 <Link to="/wishlist" className="flex items-center gap-3 text-xl font-medium text-secondary relative" onClick={() => setIsOpen(false)}>
                                     <FaHeart className="text-primary" />
                                     Wishlist

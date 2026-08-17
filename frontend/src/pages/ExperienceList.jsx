@@ -59,7 +59,25 @@ const ExperienceList = () => {
                 }
 
                 const { data } = await axios.get(`${API_URL}/experiences?${params.toString()}`);
-                setExperiences(data.experiences || []);
+                
+                // Fetch reviews for each experience to dynamically calculate true ratings explicitly
+                const experiencesWithReviews = await Promise.all((data.experiences || []).map(async (exp) => {
+                    try {
+                        const { data: reviews } = await axios.get(`${API_URL}/reviews/${exp._id}`);
+                        if (reviews && reviews.length > 0) {
+                            exp.reviewsCount = reviews.length;
+                            exp.numReviews = reviews.length;
+                            const calcRating = (reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length).toFixed(1);
+                            exp.averageRating = Number(calcRating);
+                            exp.rating = Number(calcRating);
+                        }
+                    } catch (err) {
+                        console.error('Error fetching reviews for experience', exp._id, err);
+                    }
+                    return exp;
+                }));
+
+                setExperiences(experiencesWithReviews);
                 setTotal(data.total || 0);
             } catch (error) {
                 console.error('Error fetching experiences:', error);
@@ -141,18 +159,25 @@ const ExperienceList = () => {
                             <div className="border-b border-gray-200 pb-6">
                                 <h3 className="font-bold text-gray-900 mb-4 text-sm uppercase tracking-wider">Interests</h3>
                                 <div className="space-y-3">
-                                    {['Tours', 'Tickets', 'Day Trips', 'Food', 'Nature', 'Adventure', 'Sightseeing'].map(cat => (
-                                        <label key={cat} className="flex items-center gap-3 cursor-pointer group select-none">
-                                            <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${selectedCategories.includes(cat) ? 'bg-primary border-primary' : 'border-gray-300 bg-white group-hover:border-primary'}`}>
-                                                {selectedCategories.includes(cat) && <span className="text-white text-xs">✓</span>}
+                                    {[
+                                        { label: 'Tours', value: 'Tour' },
+                                        { label: 'Tickets', value: 'Entry ticket' },
+                                        { label: 'Rentals', value: 'Rental experience' },
+                                        { label: 'Transports', value: 'Transport experience' },
+                                        { label: 'City Cards', value: 'City card' },
+                                        { label: 'Other', value: 'Other' }
+                                    ].map(cat => (
+                                        <label key={cat.value} className="flex items-center gap-3 cursor-pointer group select-none">
+                                            <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${selectedCategories.includes(cat.value) ? 'bg-primary border-primary' : 'border-gray-300 bg-white group-hover:border-primary'}`}>
+                                                {selectedCategories.includes(cat.value) && <span className="text-white text-xs">✓</span>}
                                             </div>
                                             <input
                                                 type="checkbox"
                                                 className="hidden"
-                                                checked={selectedCategories.includes(cat)}
-                                                onChange={() => toggleFilter(cat, setSelectedCategories, selectedCategories)}
+                                                checked={selectedCategories.includes(cat.value)}
+                                                onChange={() => toggleFilter(cat.value, setSelectedCategories, selectedCategories)}
                                             />
-                                            <span className={`text-sm group-hover:text-black transition-colors ${selectedCategories.includes(cat) ? 'text-gray-900 font-medium' : 'text-gray-600'}`}>{cat}</span>
+                                            <span className={`text-sm group-hover:text-black transition-colors ${selectedCategories.includes(cat.value) ? 'text-gray-900 font-medium' : 'text-gray-600'}`}>{cat.label}</span>
                                         </label>
                                     ))}
                                 </div>

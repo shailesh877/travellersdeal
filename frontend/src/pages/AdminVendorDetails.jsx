@@ -56,7 +56,7 @@ const AdminVendorDetails = () => {
                 </button>
 
                 {/* Header Card */}
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 mb-8 flex justify-between items-start">
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 mb-8 flex flex-col md:flex-row gap-6 md:justify-between items-start">
                     <div>
                         <div className="flex items-center gap-3 mb-2">
                             <h1 className="text-3xl font-bold text-gray-900">{vendor.vendorDetails?.brandName || vendor.name}</h1>
@@ -70,7 +70,7 @@ const AdminVendorDetails = () => {
                         <p className="text-gray-500 flex items-center gap-2 mt-1"><FaGlobe className="text-gray-300" /> {vendor.vendorDetails?.website || 'No website'}</p>
                     </div>
 
-                    <div className="flex gap-3">
+                    <div className="flex flex-wrap gap-3">
                         {!vendor.isVerified && (
                             <button
                                 onClick={() => handleStatusUpdate(true, true)}
@@ -217,7 +217,7 @@ const AdminVendorDetails = () => {
                                     >
                                         <div className="w-16 h-16 rounded-lg bg-gray-200 overflow-hidden flex-shrink-0">
                                             {exp.images && exp.images[0] ? (
-                                                <img src={exp.images[0]} alt="" className="w-full h-full object-cover" />
+                                                <img src={exp.images[0].startsWith('http') ? exp.images[0] : `${API_URL.replace('/api', '')}${exp.images[0]}`} alt="" className="w-full h-full object-cover" />
                                             ) : (
                                                 <div className="w-full h-full bg-gray-200" />
                                             )}
@@ -228,7 +228,7 @@ const AdminVendorDetails = () => {
                                             <div className="flex gap-3 mt-2 text-xs">
                                                 <span className="font-medium text-primary bg-primary/10 px-2 py-0.5 rounded">{exp.category}</span>
                                                 <span className="text-gray-500">{exp.location.city}, {exp.location.country}</span>
-                                                <span className="font-bold text-gray-700 ml-auto">${exp.price}</span>
+                                                <span className="font-bold text-gray-700 ml-auto">${exp.adultPrice || 0}</span>
                                             </div>
                                         </div>
                                     </div>

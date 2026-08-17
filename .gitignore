@@ -1,2 +1,63 @@
+# Global dependencies
 node_modules/
+
+
+# Environment Variables
+.env
+.env.*
+!.env.example
+*.local
+.env*.local
+
+# Editor directories and files
 .vscode/
+.idea/
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Logs and debug
+logs/
+*.log
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Testing
+coverage/
+
+# --- APP (React Native / Expo) ---
+.expo/
+web-build/
+expo-env.d.ts
+app-example/
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.pem
+.metro-health-check*
+*.tsbuildinfo
+app/ios/
+app/android/
+app/dist/
+
+# --- BACKEND ---
+uploads/
+test*.js
+*Test*.js
+*test*.js
+check*.js
+*check*.js
+
+# --- FRONTEND ---
+frontend/dist/
+frontend/dist-ssr/

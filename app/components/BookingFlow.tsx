@@ -14,7 +14,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { API_URL } from "../constants/Config";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { formatPrice } from "../utils/currency";
+import { formatPrice, getAdultPrice, getChildPrice } from "../utils/currency";
 import RazorpayWebCheckout from "./RazorpayWebCheckout";
 
 interface Props {
@@ -31,11 +31,13 @@ interface Props {
     selectedDate: string | null;
     selectedTime: string | null;
     adultCount: number;
+    childCount?: number;
+    tierCounts?: { [key: number]: number };
 }
 
 type Step = 'form' | 'success';
 
-export default function BookingFlow({ visible, onClose, experience, selectedDate, selectedTime, adultCount = 1 }: Props) {
+export default function BookingFlow({ visible, onClose, experience, selectedDate, selectedTime, adultCount = 1, childCount = 0, tierCounts }: Props) {
     const insets = useSafeAreaInsets();
     const router = useRouter();
     const [step, setStep] = useState<Step>('form');
@@ -74,11 +76,59 @@ export default function BookingFlow({ visible, onClose, experience, selectedDate
     if (!experience) return null;
 
     const currency = experience.currency || 'INR';
-    const priceString = String(experience.price || '0');
-    const unitAmount = parseFloat(priceString.replace(/,/g, ''));
-    const originalAmount = Math.round(unitAmount * 1.18); // show crossed-out original (18% higher)
-    const totalAmount = unitAmount * adultCount;
-    const discount = (originalAmount - unitAmount) * adultCount;
+
+    const getDynamicTiers = () => {
+        let tiersToRender: any = [];
+        const displayExp: any = experience;
+        if (displayExp?.bookingOptions?.length > 0) {
+            const opt = displayExp.bookingOptions[0];
+            if (opt?.availabilityAndPricing?.pricingTiers?.length > 0) {
+                tiersToRender = opt.availabilityAndPricing.pricingTiers;
+            } else {
+                tiersToRender = [{ title: 'Adult', price: opt?.availabilityAndPricing?.price || getAdultPrice(displayExp) }];
+            }
+        } else {
+            tiersToRender = [{ title: 'Adult (Age 13+)', price: getAdultPrice(displayExp) }];
+            if (getChildPrice(displayExp) > 0) {
+                tiersToRender.push({ title: 'Child', price: getChildPrice(displayExp) });
+            }
+        }
+        return tiersToRender;
+    };
+
+    let computedBaseAmount = 0;
+    let totalQuantity = 0;
+    let participantsString = '';
+
+    if (tierCounts) {
+        const tiers = getDynamicTiers();
+        tiers.forEach((tier: any, index: number) => {
+            const isAdultTier = tier.title.toLowerCase().includes('adult') || (index === 0 && !tiers.some((t: any) => t.title.toLowerCase().includes('adult')));
+            const isChildTier = tier.title.toLowerCase().includes('child') || (index === 1 && !tiers.some((t: any) => t.title.toLowerCase().includes('child')));
+            const count = tierCounts[index] !== undefined ? tierCounts[index] : (isAdultTier ? adultCount : (isChildTier ? childCount : 0));
+            
+            if (count && count > 0) {
+                totalQuantity += count;
+                computedBaseAmount += (tier.price * count);
+                participantsString += `${count} ${tier.title}${count > 1 && !tier.title.toLowerCase().endsWith('s') && !tier.title.toLowerCase().includes('children') ? 's' : ''} + `;
+            }
+        });
+        if (participantsString.endsWith(' + ')) {
+            participantsString = participantsString.slice(0, -3);
+        }
+    } else {
+        const adultUnitAmount = getAdultPrice(experience);
+        const childUnitAmount = getChildPrice(experience);
+        totalQuantity = adultCount + (childCount || 0);
+        computedBaseAmount = (adultUnitAmount * adultCount) + (childUnitAmount * (childCount || 0));
+        participantsString = `${adultCount} ${adultCount === 1 ? 'Adult' : 'Adults'} ${(childCount || 0) > 0 ? ` + ${childCount} ${childCount === 1 ? 'Child' : 'Children'}` : ''}`;
+    }
+
+    const baseAmount = computedBaseAmount;
+    const gstAmount = Math.round(baseAmount * 0.18);
+    const totalAmount = baseAmount + gstAmount;
+    const originalAmount = Math.round(baseAmount * 1.18); // show crossed-out original (18% higher)
+    const discount = originalAmount - baseAmount;
 
     const getAuthToken = async (): Promise<string | null> => {
         try {
@@ -108,7 +158,9 @@ export default function BookingFlow({ visible, onClose, experience, selectedDate
                 body: JSON.stringify({
                     experienceId: experience.id,
                     date: selectedDate ? new Date(selectedDate).toISOString() : new Date().toISOString(),
-                    slots: adultCount,
+                    slots: adultCount + childCount,
+                    adultCount: adultCount,
+                    childCount: childCount,
                     timeSlot: selectedTime || '',
                     totalPrice: totalAmount,
                     paymentStatus,
@@ -219,7 +271,7 @@ export default function BookingFlow({ visible, onClose, experience, selectedDate
     const handlePayLater = () => {
         Alert.alert(
             "Reserve Now, Pay Later",
-            `Your spot will be reserved for ${new Date(selectedDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}. Payment of ${formatPrice(totalAmount.toString(), currency)} will be collected on arrival.`,
+            `Your spot will be reserved for ${selectedDate ? new Date(selectedDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }) : 'your selected date'}. Payment of ${formatPrice(totalAmount.toString(), currency)} will be collected on arrival.`,
             [
                 { text: "Go Back", style: "cancel" },
                 {
@@ -262,7 +314,7 @@ export default function BookingFlow({ visible, onClose, experience, selectedDate
                     <Text className="text-gray-900 dark:text-white font-black text-lg mb-1">{experience.title}</Text>
                     {!!experience.rating && (
                         <View className="flex-row items-center mb-3">
-                            <Ionicons name="star" size={12} color="#fbbf24" />
+                            <Ionicons name="star" size={12} color="#F59E0B" />
                             <Text className="text-gray-600 dark:text-gray-400 text-xs ml-1">{experience.rating} · Travellers Deal Verified</Text>
                         </View>
                     )}
@@ -297,7 +349,7 @@ export default function BookingFlow({ visible, onClose, experience, selectedDate
                         <View>
                             <Text className="text-gray-400 dark:text-gray-500 text-[10px] font-bold uppercase">Participants</Text>
                             <Text className="text-gray-900 dark:text-white font-bold text-sm">
-                                {adultCount} {adultCount === 1 ? 'Adult' : 'Adults'} × {formatPrice(unitAmount.toString(), currency)}
+                                {participantsString}
                             </Text>
                         </View>
                     </View>
@@ -339,16 +391,27 @@ export default function BookingFlow({ visible, onClose, experience, selectedDate
                     />
                 </View>
 
+                {/* What's included */}
+                <Text className="text-gray-900 dark:text-white font-black text-base mb-3">What's included</Text>
+                <View className="bg-white dark:bg-[#1c1c1e] border border-gray-200 dark:border-gray-800 rounded-2xl px-5 py-4 mb-6 shadow-sm">
+                    {['Free cancellation up to 24 hours before', 'Reserve now, pay nothing today', 'Instant confirmation', 'Secure payment powered by Razorpay'].map((item, i) => (
+                        <View key={i} className="flex-row items-start mb-2" style={{ marginBottom: i === 3 ? 0 : 8 }}>
+                            <Ionicons name="checkmark" size={18} color="#22c55e" style={{ marginRight: 8, marginTop: 1 }} />
+                            <Text className="text-gray-700 dark:text-gray-300 flex-1 leading-5">{item}</Text>
+                        </View>
+                    ))}
+                </View>
+
                 {/* Price Summary */}
                 <View className="bg-gray-50 dark:bg-[#1c1c1e] border border-gray-100 dark:border-gray-800 rounded-3xl p-5 mb-6">
                     <Text className="text-gray-900 dark:text-white font-black text-base mb-4">Price summary</Text>
 
                     <View className="flex-row justify-between items-center mb-2">
                         <Text className="text-gray-600 dark:text-gray-400">
-                            {adultCount} {adultCount === 1 ? 'person' : 'people'} × {formatPrice(unitAmount.toString(), currency)}
+                            {totalQuantity} {totalQuantity === 1 ? 'person' : 'people'}
                         </Text>
                         <View className="items-end">
-                            <Text className="text-gray-400 line-through text-sm">{formatPrice((originalAmount * adultCount).toString(), currency)}</Text>
+                            <Text className="text-gray-400 line-through text-sm">{formatPrice(originalAmount.toString(), currency)}</Text>
                         </View>
                     </View>
 
@@ -357,9 +420,14 @@ export default function BookingFlow({ visible, onClose, experience, selectedDate
                         <Text className="text-green-600 dark:text-green-400 font-bold">−{formatPrice(discount.toString(), currency)}</Text>
                     </View>
 
+                    <View className="flex-row justify-between items-center mb-2">
+                        <Text className="text-gray-600 dark:text-gray-400">Price after discount</Text>
+                        <Text className="text-gray-900 dark:text-white font-medium">{formatPrice(baseAmount.toString(), currency)}</Text>
+                    </View>
+
                     <View className="flex-row justify-between items-center mb-3">
-                        <Text className="text-gray-600 dark:text-gray-400">Taxes & fees</Text>
-                        <Text className="text-green-600 dark:text-green-400 font-medium">Included</Text>
+                        <Text className="text-gray-600 dark:text-gray-400">GST (18%)</Text>
+                        <Text className="text-gray-900 dark:text-white font-medium">+{formatPrice(gstAmount.toString(), currency)}</Text>
                     </View>
 
                     <View className="h-[1px] bg-gray-200 dark:bg-gray-700 mb-3" />
@@ -370,10 +438,11 @@ export default function BookingFlow({ visible, onClose, experience, selectedDate
                             <Text className="text-gray-900 dark:text-white font-black text-2xl">
                                 {formatPrice(totalAmount.toString(), currency)}
                             </Text>
-                            <Text className="text-gray-400 text-xs">All taxes included</Text>
+                            <Text className="text-gray-400 text-xs">Including GST</Text>
                         </View>
                     </View>
-                </View>
+
+                    </View>
 
                 {/* Action Buttons */}
                 <TouchableOpacity
@@ -463,7 +532,7 @@ export default function BookingFlow({ visible, onClose, experience, selectedDate
                 </View>
                 <View className="flex-row items-center mb-3">
                     <Ionicons name="people-outline" size={18} color="#6b7280" />
-                    <Text className="text-gray-700 dark:text-gray-300 font-bold ml-3">{adultCount} {adultCount === 1 ? 'Guest' : 'Guests'}</Text>
+                    <Text className="text-gray-700 dark:text-gray-300 font-bold ml-3">{totalQuantity} {totalQuantity === 1 ? 'Guest' : 'Guests'}</Text>
                 </View>
                 <View className="flex-row items-center">
                     <Ionicons name="wallet-outline" size={18} color="#6b7280" />
@@ -507,8 +576,8 @@ export default function BookingFlow({ visible, onClose, experience, selectedDate
                         <>
                             <ScrollView className="flex-1">{renderSuccess()}</ScrollView>
                             <View style={{ paddingBottom: (insets?.bottom ?? 0) + 16 }} className="px-5 pt-4 border-t border-gray-100 dark:border-gray-800">
-                                <TouchableOpacity onPress={handleViewBookings} className="w-full bg-[#002b5c] dark:bg-[#58a6ff] py-5 rounded-full items-center">
-                                    <Text className="text-white font-black text-lg">View My Bookings</Text>
+                                <TouchableOpacity onPress={handleViewBookings} className="w-full bg-[#002b5c] dark:bg-[#58a6ff] py-5 rounded-full items-center justify-center">
+                                    <Text className="text-white font-black text-base text-center">View My Bookings</Text>
                                 </TouchableOpacity>
                             </View>
                         </>

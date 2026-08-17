@@ -22,7 +22,7 @@ export default function TabLayout() {
           left: 0,
           right: 0,
           height: insets?.top ?? 0,
-          backgroundColor: isDark ? '#000000' : '#00000080',
+          backgroundColor: isDark ? '#000000' : 'transparent',
           zIndex: 999,
         }}
       />
@@ -34,9 +34,9 @@ export default function TabLayout() {
           headerShown: false,
           tabBarStyle: {
             height: 80,
-            backgroundColor: isDark ? '#1a1a1a' : 'rgba(231, 227, 227, 1)',
+            backgroundColor: isDark ? '#1a1a1a' : '#ffffff',
             borderTopWidth: 1,
-            borderTopColor: isDark ? '#333333' : 'rgba(231, 227, 227, 1)',
+            borderTopColor: isDark ? '#333333' : '#f3f4f6',
             position: 'absolute',
             paddingBottom: insets?.bottom ?? 0,
           },

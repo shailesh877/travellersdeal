@@ -6,8 +6,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import ExperienceDetail from "../../components/ExperienceDetail";
 import { API_URL } from "../../constants/Config";
 import { router, useFocusEffect } from "expo-router";
-import { formatPrice } from "../../utils/currency";
+import { formatPrice, getDisplayPrice } from "../../utils/currency";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { getImageUrl } from "../../utils/image";
+import Animated, { FadeInUp, FadeInRight } from "react-native-reanimated";
 
 const { width } = Dimensions.get('window');
 
@@ -32,11 +34,13 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState('');
   const [wishlistIds, setWishlistIds] = useState<Set<string>>(new Set());
   const [refreshing, setRefreshing] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await fetchData();
     await fetchWishlistIds();
+    await fetchUnreadCount();
     setRefreshing(false);
   }, []);
 
@@ -47,8 +51,27 @@ export default function Home() {
   useFocusEffect(
     useCallback(() => {
       fetchWishlistIds();
+      fetchUnreadCount();
     }, [])
   );
+
+  const fetchUnreadCount = async () => {
+    try {
+      const userInfo = await AsyncStorage.getItem('userInfo');
+      if (!userInfo) return;
+      const { token } = JSON.parse(userInfo);
+
+      const response = await fetch(`${API_URL}/notifications/unread-count`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setUnreadCount(data.count || 0);
+      }
+    } catch (error) {
+      console.error("Error fetching unread count:", error);
+    }
+  };
 
   const fetchWishlistIds = async () => {
     try {
@@ -107,7 +130,7 @@ export default function Home() {
   const fetchData = async () => {
     try {
       const [expRes, destRes, attrRes] = await Promise.all([
-        fetch(`${API_URL}/experiences?pageNumber=1`),
+        fetch(`${API_URL}/experiences?pageNumber=1&limit=10`),
         fetch(`${API_URL}/homepage/destinations`),
         fetch(`${API_URL}/homepage/attractions`)
       ]);
@@ -137,92 +160,98 @@ export default function Home() {
     }
   };
 
-  const renderExperienceCard = ({ item }: { item: any }) => {
+  const renderExperienceCard = ({ item, index }: { item: any, index: number }) => {
     const isLiked = wishlistIds.has(item._id);
     return (
-      <TouchableOpacity
-        activeOpacity={0.9}
-        onPress={() => {
-          console.log("Opening Experience:", item.title);
-          setSelectedExperience(item);
-        }}
-        style={{ width: width * 0.65 }}
-        className="mr-5 bg-gray-100 dark:bg-[#1c1c1e] rounded-3xl overflow-hidden border border-gray-200 dark:border-gray-800 mb-4"
-      >
-        <View className="relative">
-          <Image
-            source={{
-              uri: item.images?.[0]
-                ? (item.images[0].startsWith('http') ? item.images[0] : `${API_URL.replace('/api', '')}/${item.images[0]}`)
-                : 'https://via.placeholder.com/400x300'
-            }}
-            className="w-full h-44"
-          />
-          {item.isOriginal && (
-            <View className="absolute top-3 left-3 flex-row items-center bg-black/20 px-2 py-1 rounded-md">
-              <View className="w-4 h-4 rounded-full bg-orange-500 items-center justify-center mr-1">
-                <Text className="text-[10px] text-white font-bold">TD</Text>
+      <Animated.View entering={FadeInRight.delay(index * 100).springify()}>
+        <TouchableOpacity
+          activeOpacity={0.9}
+          onPress={() => {
+            console.log("Opening Experience:", item.title);
+            setSelectedExperience(item);
+          }}
+          style={{ width: width * 0.65 }}
+          className="mr-5 bg-gray-100 dark:bg-[#1c1c1e] rounded-3xl overflow-hidden border border-gray-200 dark:border-gray-800 mb-4 flex-col"
+        >
+          <View className="relative">
+            <Image
+              source={{ uri: getImageUrl(item) }}
+              className="w-full h-52"
+            />
+            {item.isOriginal && (
+              <View className="absolute top-3 left-3 flex-row items-center bg-black/20 px-2 py-1 rounded-md">
+                <View className="w-4 h-4 rounded-full bg-orange-500 items-center justify-center mr-1">
+                  <Text className="text-[10px] text-white font-bold">TD</Text>
+                </View>
+                <Text className="text-white text-[10px] font-medium">Originals by TravellersDeal</Text>
               </View>
-              <Text className="text-white text-[10px] font-medium">Originals by TravellersDeal</Text>
-            </View>
-          )}
-          <TouchableOpacity
-            onPress={() => toggleWishlist(item._id)}
-            className="absolute top-3 right-3 w-9 h-9 bg-white dark:bg-gray-800 rounded-full items-center justify-center shadow-lg"
-          >
-            <Ionicons name={isLiked ? "heart" : "heart-outline"} size={20} color={isLiked ? "#ef4444" : "#6b7280"} />
-          </TouchableOpacity>
-        </View>
-
-        <View className="p-5">
-          <Text className="text-gray-500 dark:text-gray-400 text-[10px] font-bold tracking-widest uppercase mb-1">{item.category}</Text>
-          <Text className="text-gray-900 dark:text-white font-bold text-[20px] leading-tight" numberOfLines={3}>{item.title}</Text>
-
-          <Text className="text-gray-500 dark:text-gray-400 text-[15px] mt-2" numberOfLines={1}>
-            {item.duration} hours • {typeof item.location === 'object' ? item.location?.city || 'Unknown' : item.location}
-          </Text>
-
-          {item.certified && (
-            <View className="flex-row items-center mt-2 gap-1">
-              <Ionicons name="checkmark-circle-outline" size={16} color="#9ca3af" />
-              <Text className="text-gray-600 dark:text-gray-300 text-[13px]">Certified by Travellers Deal</Text>
-            </View>
-          )}
-
-          <View className="flex-row items-center mt-3 gap-1">
-            <View className="flex-row">
-              {[1, 2, 3, 4, 5].map((s) => (
-                <Ionicons key={s} name="star" size={12} color={s <= Math.floor(item.rating || 0) ? "#fbbf24" : "#4b5563"} />
-              ))}
-            </View>
-            <Text className="text-gray-900 dark:text-white font-bold text-md">{item.rating || 0}</Text>
-            <Text className="text-gray-500 dark:text-gray-400 text-md">({item.numReviews || 0})</Text>
+            )}
+            <TouchableOpacity
+              onPress={() => toggleWishlist(item._id)}
+              className="absolute top-3 right-3 w-9 h-9 bg-white dark:bg-gray-800 rounded-full items-center justify-center shadow-lg"
+            >
+              <Ionicons name={isLiked ? "heart" : "heart-outline"} size={20} color={isLiked ? "#ef4444" : "#6b7280"} />
+            </TouchableOpacity>
           </View>
 
-          <View className="mt-3 py-5">
-            <Text className="text-gray-500 dark:text-gray-400 text-[10px]">From</Text>
-            <View className="flex-row items-baseline gap-1">
-              <Text className="text-gray-900 dark:text-white font-extrabold text-lg">{formatPrice(item.price, item.currency)}</Text>
-              <Text className="text-gray-500 dark:text-gray-400 text-[10px]">per person</Text>
+          <View className="p-4 flex-1">
+            <View>
+              <Text className="text-gray-500 dark:text-gray-400 text-[10px] font-bold tracking-widest uppercase mb-1">{item.category}</Text>
+              <Text className="text-gray-900 dark:text-white font-medium text-base leading-tight" numberOfLines={2}>{item.title}</Text>
+
+              {(typeof item.location === 'object' ? item.location?.city : item.location) ? (
+                <Text className="text-gray-500 dark:text-gray-400 text-[13px] mt-1" numberOfLines={1}>
+                  {typeof item.location === 'object' ? item.location?.city : item.location}
+                </Text>
+              ) : null}
+
+              {item.certified && (
+                <View className="flex-row items-center mt-2 gap-1">
+                  <Ionicons name="checkmark-circle-outline" size={16} color="#9ca3af" />
+                  <Text className="text-gray-600 dark:text-gray-300 text-[13px]">Certified by Travellers Deal</Text>
+                </View>
+              )}
+            </View>
+
+            <View className="mt-2 flex-row justify-between items-end border-t border-gray-100 dark:border-gray-800 pt-2">
+              <View className="flex-col pb-0.5">
+                <View className="flex-row items-center mb-0.5">
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <Ionicons key={s} name={s <= Math.floor(item.averageRating || item.rating || 0) ? "star" : "star-outline"} size={12} color="#F59E0B" />
+                  ))}
+                  <Text className="text-gray-900 dark:text-white font-extrabold text-xs ml-1">{item.averageRating || item.rating || '0.0'}</Text>
+                </View>
+                <Text className="text-gray-600 dark:text-gray-400 text-[10px] tracking-tight underline">{item.numReviews || item.reviewsCount || '0'} reviews</Text>
+              </View>
+
+              <View className="items-end">
+                <Text className="text-gray-500 dark:text-gray-400 text-[10px]">From</Text>
+                <View className="flex-row items-baseline gap-1">
+                  <Text className="text-gray-900 dark:text-white font-extrabold text-[16px] leading-none">{formatPrice(getDisplayPrice(item), item.currency)}</Text>
+                  <Text className="text-gray-500 dark:text-gray-400 text-[10px]">per person</Text>
+                </View>
+              </View>
             </View>
           </View>
-        </View>
-      </TouchableOpacity>
+        </TouchableOpacity>
+      </Animated.View>
     );
   };
 
-  const renderDestinationCard = ({ item }: { item: any }) => (
-    <TouchableOpacity
-      activeOpacity={0.9}
-      onPress={() => router.push({ pathname: '/search', params: { query: item.city } })}
-      style={{ width: width * 0.38 }}
-      className="mr-3"
-    >
-      <View className="aspect-square rounded-2xl overflow-hidden mb-2 shadow-sm bg-gray-100 dark:bg-[#1c1c1e]">
-        <Image source={{ uri: item.image || 'https://via.placeholder.com/400x400' }} className="w-full h-full object-cover" />
-      </View>
-      <Text className="text-[#1a2b49] dark:text-white font-bold text-base leading-tight ml-1">{item.city}</Text>
-    </TouchableOpacity>
+  const renderDestinationCard = ({ item, index }: { item: any, index: number }) => (
+    <Animated.View entering={FadeInUp.delay(index * 100).springify()}>
+      <TouchableOpacity
+        activeOpacity={0.9}
+        onPress={() => router.push({ pathname: '/search', params: { query: item.city } })}
+        style={{ width: width * 0.38 }}
+        className="mr-3"
+      >
+        <View className="aspect-square rounded-2xl overflow-hidden mb-2 shadow-sm bg-gray-100 dark:bg-[#1c1c1e]">
+          <Image source={{ uri: item.image || 'https://via.placeholder.com/400x400' }} className="w-full h-full object-cover" />
+        </View>
+        <Text className="text-[#1a2b49] dark:text-white font-bold text-base leading-tight ml-1">{item.city}</Text>
+      </TouchableOpacity>
+    </Animated.View>
   );
 
   const renderAttractionCard = ({ item }: { item: any }) => (
@@ -276,8 +305,14 @@ export default function Home() {
             onFocus={submitSearch}
           />
         </View>
-        <TouchableOpacity className="w-12 h-12 bg-white dark:bg-[#1c1c1e] rounded-full items-center justify-center shadow-sm border border-transparent dark:border-gray-800">
+        <TouchableOpacity
+          onPress={() => router.push('/notifications')}
+          className="w-12 h-12 bg-white dark:bg-[#1c1c1e] rounded-full items-center justify-center shadow-sm border border-transparent dark:border-gray-800 relative"
+        >
           <Ionicons name="notifications-outline" size={22} color={isDark ? "#ffffff" : "#1a2b49"} />
+          {unreadCount > 0 && (
+            <View className="absolute top-3 right-3 w-2.5 h-2.5 bg-red-500 rounded-full border border-white dark:border-[#1c1c1e]" />
+          )}
         </TouchableOpacity>
       </View>
 

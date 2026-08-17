@@ -7,6 +7,7 @@ import ReviewForm from "../../components/ReviewForm";
 import { API_URL } from "../../constants/Config";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "expo-router";
+import { getImageUrl } from "../../utils/image";
 
 // Backend Booking Interface
 interface Booking {
@@ -87,8 +88,30 @@ const BookingCard = React.memo(({ item, onReviewPress }: { item: BookingDisplayI
                 />
                 <View className="flex-1 ml-4 justify-between">
                     <View>
-                        <Text className="text-gray-400 dark:text-gray-500 text-[10px]">ID: {item?.id?.slice(-6).toUpperCase() || "N/A"}</Text>
+                        <View className="flex-row justify-between items-start mb-1">
+                            <Text className="text-gray-400 dark:text-gray-500 text-[10px]">ID: {item?.id?.slice(-6).toUpperCase() || "N/A"}</Text>
+                            <View className={`px-2 py-0.5 rounded-full ${styles.bg}`}>
+                                <Text className={`text-[10px] font-bold ${styles.text} uppercase`}>{item.status}</Text>
+                            </View>
+                        </View>
+                        <Text className="text-gray-900 dark:text-white font-medium text-sm leading-tight mb-1" numberOfLines={2}>
+                            {item.title}
+                        </Text>
+                        <View className="flex-row items-center mb-1">
+                            <Ionicons name="calendar-outline" size={12} color="#9ca3af" />
+                            <Text className="text-gray-500 dark:text-gray-400 text-xs ml-1">
+                                {new Date(item.date).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                            </Text>
+                        </View>
+                    </View>
+                    <View className="flex-row justify-between items-center mt-1">
                         <Text className="text-[#002b5c] dark:text-[#58a6ff] font-black text-base">{item?.amount || "₹0"}</Text>
+                        {isCompleted && onReviewPress && (
+                            <TouchableOpacity onPress={() => onReviewPress(item)} className="bg-amber-100 dark:bg-amber-900/30 px-3 py-1 rounded-full flex-row items-center">
+                                <Ionicons name="star" size={12} color="#F59E0B" />
+                                <Text className="text-amber-700 dark:text-amber-400 font-bold text-xs ml-1">Review</Text>
+                            </TouchableOpacity>
+                        )}
                     </View>
                 </View>
             </View>
@@ -127,7 +150,7 @@ export default function BookingsScreen() {
                     date: b.date,
                     amount: `₹${b.totalPrice}`,
                     status: b.status,
-                    image: b.experience?.images?.[0] || 'https://via.placeholder.com/150',
+                    image: getImageUrl(b.experience, 'https://via.placeholder.com/150'),
 
                     // Synthesize itinerary from experience description or backend itinerary
                     itinerary: b.experience?.itinerary?.map(it => ({
