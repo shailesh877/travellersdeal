@@ -2,16 +2,10 @@ const Booking = require('../models/Booking');
 const Experience = require('../models/Experience');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
-let Expo;
-let expo;
+const { Expo } = require('expo-server-sdk');
+const expo = new Expo();
 
 async function getExpo() {
-    if (!expo) {
-        const expoModule = await import('expo-server-sdk');
-        Expo = expoModule.Expo;
-        expo = new Expo();
-    }
-
     return { Expo, expo };
 }
 
@@ -52,6 +46,49 @@ const createBooking = async (req, res) => {
         });
 
         const createdBooking = await booking.save();
+
+        // Create In-App Notification for the user
+        try {
+            await Notification.create({
+                user: req.user._id,
+                title: 'Booking Created',
+                message: `Your booking for ${experience.title} has been received.`,
+                type: 'booking_update',
+                data: {
+                    bookingId: createdBooking._id,
+                    status: createdBooking.status
+                }
+            });
+        } catch (dbErr) {
+            console.error('Error saving notification to DB:', dbErr);
+        }
+
+        // Send Push Notification for the user
+        try {
+            if (req.user.expoPushToken) {
+                const { Expo, expo } = await getExpo();
+
+                if (Expo.isExpoPushToken(req.user.expoPushToken)) {
+                    const messages = [{
+                        to: req.user.expoPushToken,
+                        sound: 'default',
+                        title: 'Booking Successful \ud83c\udf89',
+                        body: `Your booking for ${experience.title} has been placed successfully.`,
+                        data: {
+                            bookingId: createdBooking._id.toString(),
+                            status: createdBooking.status
+                        }
+                    }];
+
+                    const chunks = expo.chunkPushNotifications(messages);
+                    for (const chunk of chunks) {
+                        await expo.sendPushNotificationsAsync(chunk);
+                    }
+                }
+            }
+        } catch (pushError) {
+            console.error('Error sending push notification:', pushError);
+        }
         res.status(201).json(createdBooking);
     } catch (error) {
         console.error('createBooking error:', error);
@@ -103,6 +140,49 @@ const cancelMyBooking = async (req, res) => {
         booking.status = 'cancelled';
         const updatedBooking = await booking.save();
 
+        // Create In-App Notification
+        try {
+            await Notification.create({
+                user: req.user._id,
+                title: 'Booking Cancelled',
+                message: `Your booking has been cancelled successfully.`,
+                type: 'booking_update',
+                data: {
+                    bookingId: updatedBooking._id,
+                    status: updatedBooking.status
+                }
+            });
+        } catch (dbErr) {
+            console.error('Error saving notification to DB:', dbErr);
+        }
+
+        // Send Push Notification
+        try {
+            if (req.user.expoPushToken) {
+                const { Expo, expo } = await getExpo();
+
+                if (Expo.isExpoPushToken(req.user.expoPushToken)) {
+                    const messages = [{
+                        to: req.user.expoPushToken,
+                        sound: 'default',
+                        title: 'Booking Cancelled \u274c',
+                        body: `Your booking has been cancelled successfully.`,
+                        data: {
+                            bookingId: updatedBooking._id.toString(),
+                            status: updatedBooking.status
+                        }
+                    }];
+
+                    const chunks = expo.chunkPushNotifications(messages);
+                    for (const chunk of chunks) {
+                        await expo.sendPushNotificationsAsync(chunk);
+                    }
+                }
+            }
+        } catch (pushError) {
+            console.error('Error sending push notification:', pushError);
+        }
+
         res.json({ message: 'Booking cancelled successfully', booking: updatedBooking });
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -144,8 +224,8 @@ const updateBookingStatus = async (req, res) => {
             return res.status(404).json({ message: 'Booking not found' });
         }
 
-        // Verify vendor authorization
-        if (booking.experience.vendor.toString() !== req.user._id.toString()) {
+        // Verify vendor or admin authorization
+        if (req.user.role !== 'admin' && booking.experience.vendor.toString() !== req.user._id.toString()) {
             return res.status(401).json({
                 message: 'Not authorized to update this booking'
             });
@@ -157,10 +237,13 @@ const updateBookingStatus = async (req, res) => {
 
         // Create In-App Notification
         try {
+            const notificationTitle = status === 'confirmed' ? 'Booking Confirmed \u2705' : (status === 'cancelled' ? 'Booking Cancelled \u274c' : 'Booking Update');
+            const notificationMessage = status === 'confirmed' ? `Great news! Your booking for ${booking.experience.title} has been confirmed.` : `Your booking for ${booking.experience.title} is now ${status}.`;
+
             await Notification.create({
                 user: booking.user,
-                title: 'Booking Update',
-                message: `Your booking for ${booking.experience.title} is now ${status}.`,
+                title: notificationTitle,
+                message: notificationMessage,
                 type: 'booking_update',
                 data: {
                     bookingId: booking._id,
@@ -179,11 +262,14 @@ const updateBookingStatus = async (req, res) => {
                 const { Expo, expo } = await getExpo();
 
                 if (Expo.isExpoPushToken(bookingUser.expoPushToken)) {
+                    const notificationTitle = status === 'confirmed' ? 'Booking Confirmed \u2705' : (status === 'cancelled' ? 'Booking Cancelled \u274c' : 'Booking Update');
+                    const notificationMessage = status === 'confirmed' ? `Great news! Your booking for ${booking.experience.title} has been confirmed.` : `Your booking for ${booking.experience.title} is now ${status}.`;
+
                     const messages = [{
                         to: bookingUser.expoPushToken,
                         sound: 'default',
-                        title: 'Booking Update',
-                        body: `Your booking for ${booking.experience.title} is now ${status}.`,
+                        title: notificationTitle,
+                        body: notificationMessage,
                         data: {
                             bookingId: booking._id.toString(),
                             status: status
@@ -192,10 +278,16 @@ const updateBookingStatus = async (req, res) => {
 
                     const chunks = expo.chunkPushNotifications(messages);
 
+                    console.log('Sending push notification to:', bookingUser.expoPushToken);
                     for (const chunk of chunks) {
-                        await expo.sendPushNotificationsAsync(chunk);
+                        const ticket = await expo.sendPushNotificationsAsync(chunk);
+                        console.log('Push notification ticket:', ticket);
                     }
+                } else {
+                    console.log('Invalid Expo push token:', bookingUser.expoPushToken);
                 }
+            } else {
+                console.log('No expoPushToken found for user:', bookingUser ? bookingUser.email : 'Unknown');
             }
         } catch (pushError) {
             console.error('Error sending push notification:', pushError);

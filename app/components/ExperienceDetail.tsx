@@ -95,9 +95,6 @@ export default function ExperienceDetail({ visible, experience, onClose }: Props
     const [loadingDetails, setLoadingDetails] = useState(false);
     const [activeSection, setActiveSection] = useState<string | null>(null);
 
-    // Pick the first available language as default
-    const [selectedLanguage, setSelectedLanguage] = useState<string | null>(experience?.languages?.[0] || 'English');
-
     // Normalize ID
     const experienceId = experience ? (experience.id || experience._id || '') : '';
 
@@ -116,9 +113,6 @@ export default function ExperienceDetail({ visible, experience, onClose }: Props
                     .then(res => res.json())
                     .then(data => {
                         setFullExperience(data);
-                        if (data?.languages?.length > 0) {
-                            setSelectedLanguage(data.languages[0]);
-                        }
                         setLoadingDetails(false);
                     })
                     .catch(err => {
@@ -486,19 +480,6 @@ export default function ExperienceDetail({ visible, experience, onClose }: Props
                                                 <Ionicons name="time-outline" size={18} color="#6b7280" />
                                                 <Text className="text-gray-700 dark:text-gray-300 font-semibold ml-2 text-sm">{displayExp.duration}</Text>
                                             </View>
-                                        )}
-
-                                        {displayExp.languages && displayExp.languages.length > 0 && (
-                                            <TouchableOpacity
-                                                onPress={() => setIsLanguageModalVisible(true)}
-                                                className="bg-gray-100 dark:bg-gray-800/50 px-4 py-2.5 rounded-xl flex-row items-center"
-                                            >
-                                                <Ionicons name="language-outline" size={18} color="#6b7280" />
-                                                <Text className="text-gray-700 dark:text-gray-300 font-semibold ml-2 text-sm mr-1">
-                                                    {selectedLanguage || displayExp.languages[0]}
-                                                </Text>
-                                                <Ionicons name="chevron-down" size={14} color="#9ca3af" />
-                                            </TouchableOpacity>
                                         )}
 
                                         {displayExp.cancellationPolicy && (
@@ -909,19 +890,7 @@ export default function ExperienceDetail({ visible, experience, onClose }: Props
                                 </ScrollView>
                             </View>
 
-                            {/* Language Dropdown */}
-                            <TouchableOpacity
-                                onPress={() => setIsLanguageModalVisible(true)}
-                                className="flex-row items-center justify-between border border-gray-300 dark:border-gray-700 rounded-full px-4 py-3 mb-8"
-                            >
-                                <View className="flex-row items-center">
-                                    <Ionicons name="globe-outline" size={20} color="#4b5563" className="dark:text-gray-400 mr-3" />
-                                    <Text className="text-gray-900 dark:text-white font-medium text-base">
-                                        {selectedLanguage}
-                                    </Text>
-                                </View>
-                                <Ionicons name="caret-down" size={16} color="#9ca3af" />
-                            </TouchableOpacity>
+
 
                             {/* Action Buttons */}
                             <TouchableOpacity
@@ -1057,54 +1026,7 @@ export default function ExperienceDetail({ visible, experience, onClose }: Props
                     </TouchableOpacity>
                 </Modal>
 
-                {/* Language Selection Modal */}
-                <Modal visible={isLanguageModalVisible} transparent={true} animationType="fade">
-                    <TouchableOpacity
-                        className="flex-1 bg-black/50 justify-end"
-                        activeOpacity={1}
-                        onPress={() => setIsLanguageModalVisible(false)}
-                    >
-                        <View className="bg-white dark:bg-[#1c1c1e] rounded-t-3xl pt-6 pb-10 px-6">
-                            <Text className="text-gray-900 dark:text-white font-extrabold text-[22px] mb-6">Select language</Text>
-                            <ScrollView showsVerticalScrollIndicator={false}>
-                                {displayExp.languages && displayExp.languages.length > 0 ? (
-                                    displayExp.languages.map((lang: any, idx: number) => (
-                                        <TouchableOpacity
-                                            key={idx}
-                                            onPress={() => {
-                                                setSelectedLanguage(lang);
-                                                setIsLanguageModalVisible(false);
-                                            }}
-                                            className="py-4 border-b border-gray-100 dark:border-gray-800 flex-row justify-between items-center"
-                                        >
-                                            <Text className={`text-lg font-medium ${selectedLanguage === lang ? 'text-[#002b5c] dark:text-[#58a6ff] font-bold' : 'text-gray-700 dark:text-gray-300'}`}>
-                                                {lang}
-                                            </Text>
-                                            {selectedLanguage === lang && (
-                                                <Ionicons name="checkmark" size={24} color={Platform.OS === 'ios' ? '#007aff' : '#002b5c'} className="dark:text-[#58a6ff]" />
-                                            )}
-                                        </TouchableOpacity>
-                                    ))
-                                ) : (
-                                    <TouchableOpacity
-                                        onPress={() => {
-                                            setSelectedLanguage('English');
-                                            setIsLanguageModalVisible(false);
-                                        }}
-                                        className="py-4 border-b border-gray-100 dark:border-gray-800 flex-row justify-between items-center"
-                                    >
-                                        <Text className={`text-lg font-medium ${selectedLanguage === 'English' ? 'text-[#002b5c] dark:text-[#58a6ff] font-bold' : 'text-gray-700 dark:text-gray-300'}`}>
-                                            English
-                                        </Text>
-                                        {selectedLanguage === 'English' && (
-                                            <Ionicons name="checkmark" size={24} color="#002b5c" className="dark:text-[#58a6ff]" />
-                                        )}
-                                    </TouchableOpacity>
-                                )}
-                            </ScrollView>
-                        </View>
-                    </TouchableOpacity>
-                </Modal>
+
 
                 {
                     experience && (

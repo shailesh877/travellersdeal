@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Image, ScrollView, Text, TextInput, TouchableOpacity, View, ActivityIndicator, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { cssInterop } from "nativewind";
+import { registerForPushNotificationsAsync } from '../../utils/pushNotifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from "../../constants/Config";
 
@@ -37,6 +38,8 @@ export default function LoginScreen() {
 
             if (response.ok) {
                 await AsyncStorage.setItem('userInfo', JSON.stringify(data));
+                // Register push token for this device with the new user session
+                registerForPushNotificationsAsync();
                 router.replace("/(tabs)");
             } else {
                 Alert.alert("Login Failed", data.message || "Invalid credentials");

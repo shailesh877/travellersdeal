@@ -326,7 +326,7 @@ const AdminDashboard = () => {
                     <div className="px-6 pb-2 pt-6 text-xs font-semibold text-gray-400 uppercase tracking-wider">Management</div>
                     <NavItem id="users" icon={FaUser} label="Users Management" />
                     <NavItem id="bookings" icon={FaClipboardList} label="Booking Ledger" />
-                    
+
                     <div className="px-6 pb-2 pt-6 text-xs font-semibold text-gray-400 uppercase tracking-wider">Experiences</div>
                     <NavItem id="content" icon={FaCheckCircle} label="Pending Experiences" count={pendingExperiences.length} />
                     <NavItem id="rejected" icon={FaTimesCircle} label="Rejected Experiences" count={rejectedExperiences.length} />
@@ -390,8 +390,8 @@ const AdminDashboard = () => {
                         <>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                                 {cards.map((card, index) => (
-                                    <div 
-                                        key={index} 
+                                    <div
+                                        key={index}
                                         onClick={() => card.tab && setActiveTab(card.tab)}
                                         className={`bg-white p-6 rounded-xl shadow-sm border border-gray-200 flex items-center justify-between transition-all ${card.tab ? 'cursor-pointer hover:shadow-md hover:border-blue-300' : ''}`}
                                     >
@@ -460,9 +460,9 @@ const AdminDashboard = () => {
                                                     <span className="bg-orange-100 text-orange-700 text-xs px-2 py-1 rounded-full font-bold uppercase">Pending</span>
                                                 </td>
                                                 <td className="px-6 py-4 text-right">
-                                                    <a href={`/admin/experience/${e._id}`} className="inline-block bg-blue-600 text-white text-xs font-bold px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                                                    <Link to={`/admin/experience/${e._id}`} className="inline-block bg-blue-600 text-white text-xs font-bold px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
                                                         Review
-                                                    </a>
+                                                    </Link>
                                                 </td>
                                             </tr>
                                         )) : (
@@ -484,9 +484,9 @@ const AdminDashboard = () => {
                                                     <span className="bg-red-100 text-red-700 text-xs px-2 py-1 rounded-full font-bold uppercase">Rejected</span>
                                                 </td>
                                                 <td className="px-6 py-4 text-right">
-                                                    <a href={`/admin/experience/${e._id}`} className="inline-block bg-blue-600 text-white text-xs font-bold px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                                                    <Link to={`/admin/experience/${e._id}`} className="inline-block bg-blue-600 text-white text-xs font-bold px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
                                                         Review
-                                                    </a>
+                                                    </Link>
                                                 </td>
                                             </tr>
                                         )) : (
@@ -508,9 +508,9 @@ const AdminDashboard = () => {
                                                     <span className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded-full font-bold uppercase">Approved</span>
                                                 </td>
                                                 <td className="px-6 py-4 text-right">
-                                                    <a href={`/admin/experience/${e._id}`} className="inline-block bg-gray-900 text-white text-xs font-bold px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors">
+                                                    <Link to={`/admin/experience/${e._id}`} className="inline-block bg-gray-900 text-white text-xs font-bold px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors">
                                                         Manage
-                                                    </a>
+                                                    </Link>
                                                 </td>
                                             </tr>
                                         )) : (

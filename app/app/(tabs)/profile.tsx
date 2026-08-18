@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router, useFocusEffect } from "expo-router";
 import { useColorScheme } from "nativewind";
 import { API_URL } from "../../constants/Config";
+import Constants from "expo-constants";
 
 const THEME_KEY = 'user-theme';
 
@@ -216,8 +217,10 @@ export default function ProfileScreen() {
                 </View>
 
                 {/* VERSION SECTION */}
-                <View className="bg-[#eff2f5] dark:bg-[#121212] px-6 py-6 pb-12">
-                    <Text className="text-[#8e97a2] dark:text-gray-500 text-[14px]">{t('version')} 26.2.0</Text>
+                <View className="bg-[#eff2f5] dark:bg-[#121212] px-6 py-6 pb-20">
+                    <Text className="text-[#8e97a2] dark:text-gray-500 text-[14px]">
+                        {t('version')} {Constants.expoConfig?.version || '1.0.1'}
+                    </Text>
                 </View>
 
                 <View className="h-10" />

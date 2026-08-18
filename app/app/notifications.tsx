@@ -3,7 +3,7 @@ import { View, Text, FlatList, TouchableOpacity, ActivityIndicator } from 'react
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorScheme } from 'nativewind';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../constants/Config';
 import { formatDistanceToNow } from 'date-fns';
@@ -85,20 +85,8 @@ export default function NotificationsScreen() {
   };
 
   return (
-    <View
-      className="flex-1 bg-gray-50 dark:bg-black"
-      style={{ paddingTop: insets.top }}
-    >
-      <View className="flex-row items-center justify-between px-4 py-4 bg-white dark:bg-[#1c1c1e] border-b border-gray-100 dark:border-gray-800">
-        <TouchableOpacity
-          onPress={() => router.back()}
-          className="w-10 h-10 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800"
-        >
-          <Ionicons name="arrow-back" size={24} color={isDark ? '#ffffff' : '#1a2b49'} />
-        </TouchableOpacity>
-        <Text className="text-[#1a2b49] dark:text-white font-bold text-lg">Notifications</Text>
-        <View className="w-10" />
-      </View>
+    <View className="flex-1 bg-gray-50 dark:bg-black">
+      <Stack.Screen options={{ title: 'Notifications' }} />
 
       {loading ? (
         <View className="flex-1 justify-center items-center">

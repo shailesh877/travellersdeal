@@ -89,7 +89,7 @@ const BookingCard = React.memo(({ item, onReviewPress }: { item: BookingDisplayI
                 <View className="flex-1 ml-4 justify-between">
                     <View>
                         <View className="flex-row justify-between items-start mb-1">
-                            <Text className="text-gray-400 dark:text-gray-500 text-[10px]">ID: {item?.id?.slice(-6).toUpperCase() || "N/A"}</Text>
+                            <Text className="text-gray-400 dark:text-gray-500 text-[10px]" numberOfLines={1}>ID: {item?.id?.toUpperCase() || "N/A"}</Text>
                             <View className={`px-2 py-0.5 rounded-full ${styles.bg}`}>
                                 <Text className={`text-[10px] font-bold ${styles.text} uppercase`}>{item.status}</Text>
                             </View>

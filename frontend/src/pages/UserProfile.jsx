@@ -347,9 +347,15 @@ const UserProfile = () => {
                                     <span className={`font-bold uppercase text-xs px-2 py-1 rounded-full ${selectedBooking.paymentStatus === 'paid' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>{selectedBooking.paymentStatus}</span>
                                 </div>
                                 <div className="flex justify-between">
-                                    <span className="text-gray-600">Date & Time</span>
+                                    <span className="text-gray-600">Experience Date</span>
                                     <span className="font-semibold text-gray-900">{new Date(selectedBooking.date).toLocaleDateString()} {selectedBooking.timeSlot ? `· ${selectedBooking.timeSlot}` : ''}</span>
                                 </div>
+                                {selectedBooking.createdAt && (
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-600">Booked On</span>
+                                        <span className="font-semibold text-gray-900">{new Date(selectedBooking.createdAt).toLocaleDateString()}</span>
+                                    </div>
+                                )}
                                 {selectedBooking.travellerInfo?.name && (
                                     <div className="flex justify-between">
                                         <span className="text-gray-600">Primary Traveller</span>
@@ -374,9 +380,19 @@ const UserProfile = () => {
                                 )}
                             </div>
                             
-                            <div className="border-t border-gray-100 pt-4 flex justify-between items-center">
-                                <span className="text-gray-900 font-bold">Total Amount Paid</span>
-                                <span className="text-2xl font-bold text-primary">${selectedBooking.totalPrice}</span>
+                            <div className="border-t border-gray-100 pt-4 space-y-2">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-gray-600 font-medium">Subtotal</span>
+                                    <span className="font-semibold text-gray-900">${(selectedBooking.totalPrice / 1.18).toFixed(2)}</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-gray-600 font-medium">GST (18%)</span>
+                                    <span className="font-semibold text-gray-900">${(selectedBooking.totalPrice - (selectedBooking.totalPrice / 1.18)).toFixed(2)}</span>
+                                </div>
+                                <div className="border-t border-gray-100 pt-2 mt-2 flex justify-between items-center">
+                                    <span className="text-gray-900 font-bold">Total Amount Paid</span>
+                                    <span className="text-2xl font-bold text-primary">${selectedBooking.totalPrice}</span>
+                                </div>
                             </div>
                         </div>
                         <div className="p-6 bg-gray-50 border-t border-gray-100 flex gap-4">

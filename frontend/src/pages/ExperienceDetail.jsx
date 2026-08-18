@@ -863,24 +863,7 @@ const ExperienceDetail = () => {
                                 </div>
                             )}
 
-                            {/* Select Language */}
-                            <div className="relative border border-gray-300 rounded-full hover:border-gray-500 hover:shadow-sm transition-all focus-within:border-blue-600 focus-within:ring-1 focus-within:ring-blue-600">
-                                <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none text-gray-500">
-                                    <FaGlobe size={16} />
-                                </div>
-                                <span className="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400">
-                                    ▾
-                                </span>
-                                <select
-                                    value={language}
-                                    onChange={(e) => setLanguage(e.target.value)}
-                                    className="w-full bg-transparent p-3 pl-12 pr-10 rounded-full font-medium text-gray-700 outline-none cursor-pointer appearance-none text-sm"
-                                >
-                                    {(experience.languages?.length > 0 ? experience.languages : ['English', 'Spanish', 'Hindi', 'French', 'Italian', 'Japanese']).map((lang) => (
-                                        <option key={lang} value={lang}>{lang}</option>
-                                    ))}
-                                </select>
-                            </div>
+
                         </div>
 
                         {/* CTA Buttons */}

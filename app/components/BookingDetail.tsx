@@ -30,6 +30,7 @@ interface Booking {
     paymentId?: string;
     tierBreakdown?: { title: string; quantity: number; price: number }[];
     travellerInfo?: { name: string; email: string; phone: string };
+    createdAt?: string;
 }
 
 interface BookingDisplayItem {
@@ -97,10 +98,10 @@ export default function BookingDetail({ visible, booking, onClose }: Props) {
         }
     };
 
-    const handleDownloadTicket = async () => {
-        if (!displayBooking) return;
+    const getTicketHtml = () => {
+        if (!displayBooking) return '';
 
-        const htmlContent = `
+        return `
             <!DOCTYPE html>
             <html>
             <head>
@@ -126,6 +127,7 @@ export default function BookingDetail({ visible, booking, onClose }: Props) {
                 <div class="header">
                     <h1 class="title">TRAVELLERS DEAL</h1>
                     <p class="subtitle">E-Ticket & Booking Confirmation</p>
+                    <p class="subtitle" style="font-size: 12px; margin-top: 10px;">Generated on: ${new Date().toLocaleString('en-US', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: 'numeric' })}</p>
                 </div>
 
                 <div class="section">
@@ -144,9 +146,14 @@ export default function BookingDetail({ visible, booking, onClose }: Props) {
                             <div class="value">${displayBooking.title}</div>
                         </div>
                         <div class="info-item">
-                            <div class="label">Date</div>
-                            <div class="value">${displayBooking.date}</div>
+                            <div class="label">Experience Date</div>
+                            <div class="value">${new Date(displayBooking.date).toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' })}</div>
                         </div>
+                        ${actualBooking.createdAt ? `
+                        <div class="info-item">
+                            <div class="label">Booked On</div>
+                            <div class="value">${new Date(actualBooking.createdAt).toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' })}</div>
+                        </div>` : ''}
                         ${actualBooking.travellerInfo?.name ? `
                         <div class="info-item">
                             <div class="label">Primary Traveller</div>
@@ -167,20 +174,17 @@ export default function BookingDetail({ visible, booking, onClose }: Props) {
                 </div>
 
                 <div class="section">
-                    <div class="section-title">Itinerary</div>
-                    ${displayBooking.itinerary?.map((item: any) => `
-                        <div class="itinerary-item">
-                            <div class="value">${item.title}</div>
-                            <div class="subtitle">${item.location} | ${item.time}</div>
-                            ${item.description ? `<div class="subtitle" style="margin-top: 5px; color: #555;">${item.description}</div>` : ''}
-                        </div>
-                    `).join('')}
-                </div>
-
-                <div class="section">
                     <div class="section-title">Payment Summary</div>
                     <div class="payment-box">
                         <div class="info-grid">
+                            <div class="info-item">
+                                <div class="label">Subtotal</div>
+                                <div class="value">₹${(actualBooking.totalPrice / 1.18).toFixed(2)}</div>
+                            </div>
+                            <div class="info-item">
+                                <div class="label">GST (18%)</div>
+                                <div class="value">₹${(actualBooking.totalPrice - (actualBooking.totalPrice / 1.18)).toFixed(2)}</div>
+                            </div>
                             <div class="info-item">
                                 <div class="label">Total Amount Paid</div>
                                 <div class="value" style="font-size: 20px; color: #002b5c;">${displayBooking.payment?.total}</div>
@@ -200,6 +204,11 @@ export default function BookingDetail({ visible, booking, onClose }: Props) {
             </body>
             </html>
         `;
+    };
+
+    const handleDownloadTicket = async () => {
+        const htmlContent = getTicketHtml();
+        if (!htmlContent) return;
 
         try {
             await Print.printAsync({
@@ -207,6 +216,25 @@ export default function BookingDetail({ visible, booking, onClose }: Props) {
             });
         } catch (error) {
             console.error('Error printing ticket:', error);
+        }
+    };
+
+    const handleShareTicket = async () => {
+        const htmlContent = getTicketHtml();
+        if (!htmlContent) return;
+
+        try {
+            const { uri } = await Print.printToFileAsync({ html: htmlContent });
+            if (await Sharing.isAvailableAsync()) {
+                await Sharing.shareAsync(uri, {
+                    mimeType: 'application/pdf',
+                    dialogTitle: 'Share your Booking Ticket'
+                });
+            } else {
+                alert('Sharing is not available on this device');
+            }
+        } catch (error) {
+            console.error('Error sharing ticket:', error);
         }
     };
 
@@ -233,17 +261,44 @@ export default function BookingDetail({ visible, booking, onClose }: Props) {
                 </View>
 
                 <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
-                    {/* STATUS CARD */}
-                    <View className="bg-white dark:bg-[#1c1c1e] m-6 rounded-3xl p-6 shadow-sm border border-transparent dark:border-gray-800 flex-row items-center justify-between">
-                        <View>
-                            <Text className="text-gray-500 dark:text-gray-400 text-xs font-bold uppercase tracking-widest mb-1">Status</Text>
-                            <Text style={{ color: getStatusColor(booking?.status || "") }} className="font-black text-2xl uppercase italic">
-                                {booking?.status || "Unknown"}
-                            </Text>
+                    {/* OVERVIEW CARD */}
+                    <View className="bg-white dark:bg-[#1c1c1e] m-6 rounded-3xl p-6 shadow-sm border border-transparent dark:border-gray-800">
+                        <Text className="text-gray-900 dark:text-white font-extrabold text-xl mb-4">{displayBooking.title}</Text>
+                        <View className="flex-row items-center justify-between mb-4 border-b border-gray-50 dark:border-gray-800 pb-4">
+                            <View>
+                                <Text className="text-gray-500 dark:text-gray-400 text-xs font-bold uppercase tracking-widest mb-1">Status</Text>
+                                <Text style={{ color: getStatusColor(booking?.status || "") }} className="font-black text-2xl uppercase italic">
+                                    {booking?.status || "Unknown"}
+                                </Text>
+                            </View>
+                            <View className="w-14 h-14 rounded-full items-center justify-center bg-gray-50 dark:bg-gray-800">
+                                <Ionicons name="checkmark-circle" size={32} color={getStatusColor(booking?.status || "")} />
+                            </View>
                         </View>
-                        <View className="w-14 h-14 rounded-full items-center justify-center bg-gray-50 dark:bg-gray-800">
-                            <Ionicons name="checkmark-circle" size={32} color={getStatusColor(booking?.status || "")} />
+                        <View className="flex-row items-center mb-3">
+                            <View className="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-900/20 items-center justify-center mr-3">
+                                <Ionicons name="calendar" size={18} color="#002b5c" />
+                            </View>
+                            <View>
+                                <Text className="text-gray-400 dark:text-gray-500 text-[10px] font-bold uppercase tracking-widest">Experience Date</Text>
+                                <Text className="text-gray-900 dark:text-white font-bold text-sm">
+                                    {new Date(displayBooking.date).toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' })}
+                                </Text>
+                            </View>
                         </View>
+                        {actualBooking.createdAt && (
+                            <View className="flex-row items-center">
+                                <View className="w-10 h-10 rounded-full bg-green-50 dark:bg-green-900/20 items-center justify-center mr-3">
+                                    <Ionicons name="time-outline" size={18} color="#10b981" />
+                                </View>
+                                <View>
+                                    <Text className="text-gray-400 dark:text-gray-500 text-[10px] font-bold uppercase tracking-widest">Booked On</Text>
+                                    <Text className="text-gray-900 dark:text-white font-bold text-sm">
+                                        {new Date(actualBooking.createdAt).toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' })}
+                                    </Text>
+                                </View>
+                            </View>
+                        )}
                     </View>
 
                     {/* TRAVELLER DETAILS */}
@@ -322,11 +377,11 @@ export default function BookingDetail({ visible, booking, onClose }: Props) {
                         <View className="bg-gray-50 dark:bg-gray-900/30 rounded-2xl p-4 mb-6">
                             <View className="flex-row justify-between mb-2">
                                 <Text className="text-gray-600 dark:text-gray-400">Subtotal</Text>
-                                <Text className="text-gray-900 dark:text-white font-semibold">₹{actualBooking.totalPrice}</Text>
+                                <Text className="text-gray-900 dark:text-white font-semibold">₹{(actualBooking.totalPrice / 1.18).toFixed(2)}</Text>
                             </View>
                             <View className="flex-row justify-between mb-2">
-                                <Text className="text-gray-600 dark:text-gray-400">Taxes & Fees</Text>
-                                <Text className="text-gray-900 dark:text-white font-semibold">Included</Text>
+                                <Text className="text-gray-600 dark:text-gray-400">GST (18%)</Text>
+                                <Text className="text-gray-900 dark:text-white font-semibold">₹{(actualBooking.totalPrice - (actualBooking.totalPrice / 1.18)).toFixed(2)}</Text>
                             </View>
                             <View className="h-px bg-gray-200 dark:bg-gray-700 my-2" />
                             <View className="flex-row justify-between">
@@ -373,7 +428,7 @@ export default function BookingDetail({ visible, booking, onClose }: Props) {
                             <Ionicons name="chatbox-outline" size={20} color="#6b7280" />
                             <Text className="text-gray-700 dark:text-gray-400 font-bold text-xs mt-1">Support</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity className="flex-1 bg-white dark:bg-[#1c1c1e] border border-gray-200 dark:border-gray-800 py-4 rounded-2xl items-center shadow-sm">
+                        <TouchableOpacity onPress={handleShareTicket} className="flex-1 bg-white dark:bg-[#1c1c1e] border border-gray-200 dark:border-gray-800 py-4 rounded-2xl items-center shadow-sm">
                             <Ionicons name="share-social-outline" size={20} color="#6b7280" />
                             <Text className="text-gray-700 dark:text-gray-400 font-bold text-xs mt-1">Share</Text>
                         </TouchableOpacity>

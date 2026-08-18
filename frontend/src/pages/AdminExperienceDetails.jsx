@@ -125,7 +125,15 @@ const AdminExperienceDetails = () => {
         return isChanged(field) ? `${defaultClass} bg-yellow-50 border-yellow-300 ring-1 ring-yellow-400/30 rounded-lg p-1 -m-1 transition-all` : defaultClass;
     };
 
-    if (loading) return <div className="p-8 text-center">Loading...</div>;
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-gray-50 pt-20 p-8 font-sans flex justify-center items-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+            </div>
+        );
+    }
+    
+    if (!experience) return <div className="p-8 text-center">Experience not found</div>;
 
     return (
         <div className="min-h-screen bg-gray-50 pt-20 p-8 font-sans">
