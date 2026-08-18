@@ -6,6 +6,11 @@ let Expo;
 let expo;
 
 async function getExpo() {
+    // Polyfill for Node 18 where global File might not be defined but undici requires it
+    if (typeof File === 'undefined') {
+        global.File = require('buffer').File;
+    }
+
     if (!expo) {
         const expoModule = await import('expo-server-sdk');
         Expo = expoModule.Expo;
