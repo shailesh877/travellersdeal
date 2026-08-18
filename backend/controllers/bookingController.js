@@ -2,10 +2,15 @@ const Booking = require('../models/Booking');
 const Experience = require('../models/Experience');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
-const { Expo } = require('expo-server-sdk');
-const expo = new Expo();
+let Expo;
+let expo;
 
 async function getExpo() {
+    if (!expo) {
+        const expoModule = await import('expo-server-sdk');
+        Expo = expoModule.Expo;
+        expo = new Expo();
+    }
     return { Expo, expo };
 }
 
