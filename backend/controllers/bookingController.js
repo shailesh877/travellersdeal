@@ -11,6 +11,13 @@ async function getExpo() {
         global.File = require('buffer').File;
     }
 
+    // Polyfill for String.prototype.toWellFormed missing in some Node 18 versions (used by undici/fetch)
+    if (!String.prototype.toWellFormed) {
+        String.prototype.toWellFormed = function () {
+            return String(this);
+        };
+    }
+
     if (!expo) {
         const expoModule = await import('expo-server-sdk');
         Expo = expoModule.Expo;
