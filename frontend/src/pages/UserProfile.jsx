@@ -350,10 +350,28 @@ const UserProfile = () => {
                                     <span className="text-gray-600">Date & Time</span>
                                     <span className="font-semibold text-gray-900">{new Date(selectedBooking.date).toLocaleDateString()} {selectedBooking.timeSlot ? `· ${selectedBooking.timeSlot}` : ''}</span>
                                 </div>
-                                <div className="flex justify-between">
-                                    <span className="text-gray-600">Tickets</span>
-                                    <span className="font-semibold text-gray-900">{selectedBooking.slots} Guest(s)</span>
-                                </div>
+                                {selectedBooking.travellerInfo?.name && (
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-600">Primary Traveller</span>
+                                        <span className="font-semibold text-gray-900">{selectedBooking.travellerInfo.name}</span>
+                                    </div>
+                                )}
+                                {selectedBooking.tierBreakdown && selectedBooking.tierBreakdown.length > 0 ? (
+                                    <div className="pt-2 border-t border-gray-100 mt-2">
+                                        <span className="text-gray-600 mb-2 block font-medium">Participant Breakdown</span>
+                                        {selectedBooking.tierBreakdown.map((tier, idx) => (
+                                            <div key={idx} className="flex justify-between text-sm mb-1">
+                                                <span className="text-gray-700">{tier.quantity} x {tier.title}</span>
+                                                <span className="font-semibold text-gray-900">${tier.price * tier.quantity}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-600">Tickets</span>
+                                        <span className="font-semibold text-gray-900">{selectedBooking.slots} Guest(s)</span>
+                                    </div>
+                                )}
                             </div>
                             
                             <div className="border-t border-gray-100 pt-4 flex justify-between items-center">

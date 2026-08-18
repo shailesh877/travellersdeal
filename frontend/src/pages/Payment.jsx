@@ -23,6 +23,10 @@ const Payment = () => {
     const [loading, setLoading] = useState(false);
     const [coupon, setCoupon] = useState('');
     const [couponApplied, setCouponApplied] = useState(false);
+    
+    const [travellerName, setTravellerName] = useState(user?.name || '');
+    const [travellerEmail, setTravellerEmail] = useState(user?.email || '');
+    const [travellerPhone, setTravellerPhone] = useState('');
 
     const currencySymbol = {
         'USD': '$', 'EUR': '€', 'GBP': '£', 'INR': '₹', 'AED': 'AED ', 'JPY': '¥'
@@ -86,7 +90,12 @@ const Payment = () => {
                             try {
                                 await axios.post(
                                     `${API_URL}/bookings`,
-                                    { experienceId, date, slots, timeSlot, paymentStatus: 'paid', paymentId: response.razorpay_payment_id, totalPrice: totalAmount },
+                                    { 
+                                        experienceId, date, slots, timeSlot, 
+                                        paymentStatus: 'paid', paymentId: response.razorpay_payment_id, totalPrice: totalAmount,
+                                        tierBreakdown: tierSelections,
+                                        travellerInfo: { name: travellerName, email: travellerEmail, phone: travellerPhone }
+                                    },
                                     config
                                 );
                                 navigate('/completion', { state: { paymentMethod: 'online' } });
@@ -124,7 +133,12 @@ const Payment = () => {
 
             await axios.post(
                 `${API_URL}/bookings`,
-                { experienceId, date, slots, timeSlot, paymentStatus: 'pending', paymentId: 'pay_later', totalPrice: totalAmount },
+                { 
+                    experienceId, date, slots, timeSlot, 
+                    paymentStatus: 'pending', paymentId: 'pay_later', totalPrice: totalAmount,
+                    tierBreakdown: tierSelections,
+                    travellerInfo: { name: travellerName, email: travellerEmail, phone: travellerPhone }
+                },
                 config
             );
 
@@ -219,16 +233,16 @@ const Payment = () => {
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div>
                                         <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">Full Name</label>
-                                        <input type="text" defaultValue={user?.name || ''} className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-800 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition" placeholder="Your full name" />
+                                        <input type="text" value={travellerName} onChange={(e) => setTravellerName(e.target.value)} className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-800 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition" placeholder="Your full name" />
                                     </div>
                                     <div>
                                         <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">Email</label>
-                                        <input type="email" defaultValue={user?.email || ''} className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-800 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition" placeholder="Your email" />
+                                        <input type="email" value={travellerEmail} onChange={(e) => setTravellerEmail(e.target.value)} className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-800 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition" placeholder="Your email" />
                                     </div>
                                 </div>
                                 <div>
                                     <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">Phone (optional)</label>
-                                    <input type="tel" className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-800 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition" placeholder="+91 00000 00000" />
+                                    <input type="tel" value={travellerPhone} onChange={(e) => setTravellerPhone(e.target.value)} className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-800 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition" placeholder="+91 00000 00000" />
                                 </div>
                             </div>
                         </div>

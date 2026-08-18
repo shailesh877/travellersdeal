@@ -23,10 +23,13 @@ interface Booking {
         itinerary: ItineraryItem[];
     };
     date: string;
+    slots?: number;
     totalPrice: number;
     status: string;
     paymentStatus: string;
     paymentId?: string;
+    tierBreakdown?: { title: string; quantity: number; price: number }[];
+    travellerInfo?: { name: string; email: string; phone: string };
 }
 
 interface BookingDisplayItem {
@@ -63,6 +66,7 @@ export default function BookingDetail({ visible, booking, onClose }: Props) {
             image: b.experience?.images?.[0] || '',
             itinerary: b.experience?.itinerary?.map(i => ({
                 title: i.title,
+                description: i.description,
                 location: b.experience?.location?.city || '',
                 time: 'N/A'
             })),
@@ -143,6 +147,22 @@ export default function BookingDetail({ visible, booking, onClose }: Props) {
                             <div class="label">Date</div>
                             <div class="value">${displayBooking.date}</div>
                         </div>
+                        ${actualBooking.travellerInfo?.name ? `
+                        <div class="info-item">
+                            <div class="label">Primary Traveller</div>
+                            <div class="value">${actualBooking.travellerInfo.name}</div>
+                        </div>` : ''}
+                        ${actualBooking.tierBreakdown && actualBooking.tierBreakdown.length > 0 ? `
+                        <div class="info-item" style="grid-column: span 2;">
+                            <div class="label">Participants</div>
+                            <div class="value">
+                                ${actualBooking.tierBreakdown.map((t: any) => `${t.quantity}x ${t.title} (₹${t.price * t.quantity})`).join('<br/>')}
+                            </div>
+                        </div>` : `
+                        <div class="info-item">
+                            <div class="label">Members (Tickets)</div>
+                            <div class="value">${actualBooking.slots || 1}</div>
+                        </div>`}
                     </div>
                 </div>
 
@@ -152,6 +172,7 @@ export default function BookingDetail({ visible, booking, onClose }: Props) {
                         <div class="itinerary-item">
                             <div class="value">${item.title}</div>
                             <div class="subtitle">${item.location} | ${item.time}</div>
+                            ${item.description ? `<div class="subtitle" style="margin-top: 5px; color: #555;">${item.description}</div>` : ''}
                         </div>
                     `).join('')}
                 </div>
@@ -181,12 +202,9 @@ export default function BookingDetail({ visible, booking, onClose }: Props) {
         `;
 
         try {
-            const { uri } = await Print.printToFileAsync({ html: htmlContent });
-            if (Platform.OS === 'ios') {
-                await Sharing.shareAsync(uri);
-            } else {
-                await Sharing.shareAsync(uri, { mimeType: 'application/pdf', dialogTitle: 'Download Ticket' });
-            }
+            await Print.printAsync({
+                html: htmlContent,
+            });
         } catch (error) {
             console.error('Error printing ticket:', error);
         }
@@ -228,6 +246,35 @@ export default function BookingDetail({ visible, booking, onClose }: Props) {
                         </View>
                     </View>
 
+                    {/* TRAVELLER DETAILS */}
+                    <View className="px-6 mb-8 mt-2">
+                        <Text className="text-gray-900 dark:text-white font-black text-xl mb-4">Traveller Details</Text>
+                        <View className="bg-white dark:bg-[#1c1c1e] p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800">
+                            {actualBooking.travellerInfo?.name && (
+                                <View className="mb-4 border-b border-gray-50 dark:border-gray-800 pb-3">
+                                    <Text className="text-gray-400 text-xs font-bold uppercase tracking-widest mb-1">Primary Traveller</Text>
+                                    <Text className="text-gray-900 dark:text-white font-medium">{actualBooking.travellerInfo.name}</Text>
+                                </View>
+                            )}
+                            {actualBooking.tierBreakdown && actualBooking.tierBreakdown.length > 0 ? (
+                                <View>
+                                    <Text className="text-gray-400 text-xs font-bold uppercase tracking-widest mb-2">Participant Breakdown</Text>
+                                    {actualBooking.tierBreakdown.map((tier: any, idx: number) => (
+                                        <View key={idx} className="flex-row justify-between mb-1">
+                                            <Text className="text-gray-700 dark:text-gray-300 text-sm">{tier.quantity} x {tier.title}</Text>
+                                            <Text className="text-gray-900 dark:text-white font-bold text-sm">₹{tier.price * tier.quantity}</Text>
+                                        </View>
+                                    ))}
+                                </View>
+                            ) : (
+                                <View>
+                                    <Text className="text-gray-400 text-xs font-bold uppercase tracking-widest mb-1">Tickets</Text>
+                                    <Text className="text-gray-900 dark:text-white font-medium">{actualBooking.slots || 1} Guest(s)</Text>
+                                </View>
+                            )}
+                        </View>
+                    </View>
+
                     {/* ITINERARY SECTION */}
                     <View className="px-6 mb-8">
                         <Text className="text-gray-900 dark:text-white font-black text-xl mb-6">Itinerary</Text>
@@ -245,12 +292,21 @@ export default function BookingDetail({ visible, booking, onClose }: Props) {
                                 <View className="flex-1 pb-8">
                                     <View className="flex-row justify-between items-start">
                                         <Text className="text-gray-900 dark:text-white font-bold text-base leading-tight flex-1">{item?.title || "Untitled"}</Text>
-                                        <Text className="text-[#002b5c] dark:text-[#58a6ff] font-black text-xs ml-2">{item?.time || "N/A"}</Text>
+                                        {item?.time && (
+                                            <Text className="text-[#002b5c] dark:text-[#58a6ff] font-black text-xs ml-2">{item.time}</Text>
+                                        )}
                                     </View>
-                                    <View className="flex-row items-center mt-1">
-                                        <Ionicons name="location-sharp" size={12} color="#6b7280" />
-                                        <Text className="text-gray-500 dark:text-gray-400 text-xs ml-1">{item?.location || "Unknown"}</Text>
-                                    </View>
+                                    {item?.location && (
+                                        <View className="flex-row items-center mt-1">
+                                            <Ionicons name="location-sharp" size={12} color="#6b7280" />
+                                            <Text className="text-gray-500 dark:text-gray-400 text-xs ml-1">{item.location}</Text>
+                                        </View>
+                                    )}
+                                    {item?.description && (
+                                        <Text className="text-gray-600 dark:text-gray-400 text-sm mt-2 leading-tight">
+                                            {item.description}
+                                        </Text>
+                                    )}
                                 </View>
                             </View>
                         ))}

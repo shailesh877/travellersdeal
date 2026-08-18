@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import React, { useState, useEffect, useRef } from "react";
-import { Dimensions, Image, Modal, ScrollView, Text, TouchableOpacity, View, Alert, Platform, Linking, ActivityIndicator } from "react-native";
+import { Dimensions, Image, Modal, ScrollView, Text, TouchableOpacity, View, Alert, Platform, Linking, ActivityIndicator, Share } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import BookingFlow from "./BookingFlow";
 import { API_URL } from "../constants/Config";
@@ -187,6 +187,20 @@ export default function ExperienceDetail({ visible, experience, onClose }: Props
             console.error("Error toggling wishlist:", error);
         } finally {
             setWishlistLoading(false);
+        }
+    };
+
+    const handleShare = async () => {
+        if (!displayExp) return;
+        try {
+            const url = `https://travellersdeal.com/experience/${experienceId}`;
+            await Share.share({
+                message: `Check out this experience on Travellers Deal: ${displayExp.title}\n\n${url}`,
+                url: url,
+                title: displayExp.title
+            });
+        } catch (error: any) {
+            console.error("Error sharing:", error.message);
         }
     };
 
@@ -386,7 +400,7 @@ export default function ExperienceDetail({ visible, experience, onClose }: Props
 
                         {/* SHARE & WISHLIST BUTTONS */}
                         <View style={{ top: (insets?.top ?? 0) + 10 }} className="absolute right-4 flex-row gap-3 z-10">
-                            <TouchableOpacity className="w-10 h-10 bg-black/30 rounded-full items-center justify-center">
+                            <TouchableOpacity onPress={handleShare} className="w-10 h-10 bg-black/30 rounded-full items-center justify-center">
                                 <Ionicons name="share-outline" size={20} color="white" />
                             </TouchableOpacity>
                             <TouchableOpacity

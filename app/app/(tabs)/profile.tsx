@@ -1,10 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { FlatList, Linking, Modal, Platform, ScrollView, Text, TouchableOpacity, View, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { useColorScheme } from "nativewind";
 import { API_URL } from "../../constants/Config";
 
@@ -20,16 +20,27 @@ export default function ProfileScreen() {
     const [userInfo, setUserInfo] = useState<any>(null);
     const [appSettings, setAppSettings] = useState<{ playStoreUrl: string; appStoreUrl: string; feedbackUrl: string } | null>(null);
 
+    useFocusEffect(
+        useCallback(() => {
+            const loadUser = async () => {
+                try {
+                    const userStr = await AsyncStorage.getItem('userInfo');
+                    if (userStr) {
+                        setUserInfo(JSON.parse(userStr));
+                    }
+                } catch (e) {
+                    console.log('Error loading user info', e);
+                }
+            };
+            loadUser();
+        }, [])
+    );
+
     useEffect(() => {
         const loadSettings = async () => {
             try {
                 const savedTheme = await AsyncStorage.getItem(THEME_KEY);
                 if (savedTheme) setCurrentTheme(savedTheme as any);
-
-                const userStr = await AsyncStorage.getItem('userInfo');
-                if (userStr) {
-                    setUserInfo(JSON.parse(userStr));
-                }
             } catch (e) {
                 console.log('Error loading settings', e);
             }

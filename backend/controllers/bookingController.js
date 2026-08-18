@@ -19,7 +19,7 @@ async function getExpo() {
 // @route   POST /api/bookings
 // @access  Private
 const createBooking = async (req, res) => {
-    const { experienceId, date, slots, timeSlot, paymentStatus, paymentId, totalPrice: clientTotalPrice } = req.body;
+    const { experienceId, date, slots, timeSlot, paymentStatus, paymentId, totalPrice: clientTotalPrice, tierBreakdown, travellerInfo } = req.body;
 
     try {
         // Guard against missing user (should be caught by auth middleware, but safety net)
@@ -43,6 +43,8 @@ const createBooking = async (req, res) => {
             date,
             timeSlot,
             slots: slots || 1,
+            tierBreakdown: tierBreakdown || [],
+            travellerInfo: travellerInfo || {},
             totalPrice,
             status: 'pending',
             paymentStatus: paymentStatus || 'pending',

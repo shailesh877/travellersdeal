@@ -23,6 +23,16 @@ const bookingSchema = new mongoose.Schema({
         required: true,
         default: 1,
     },
+    tierBreakdown: [{
+        title: { type: String, required: true },
+        quantity: { type: Number, required: true },
+        price: { type: Number, required: true }
+    }],
+    travellerInfo: {
+        name: { type: String },
+        email: { type: String },
+        phone: { type: String }
+    },
     totalPrice: {
         type: Number,
         required: true,

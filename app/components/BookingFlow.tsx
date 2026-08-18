@@ -99,6 +99,7 @@ export default function BookingFlow({ visible, onClose, experience, selectedDate
     let computedBaseAmount = 0;
     let totalQuantity = 0;
     let participantsString = '';
+    const tierBreakdown: any[] = [];
 
     if (tierCounts) {
         const tiers = getDynamicTiers();
@@ -111,6 +112,7 @@ export default function BookingFlow({ visible, onClose, experience, selectedDate
                 totalQuantity += count;
                 computedBaseAmount += (tier.price * count);
                 participantsString += `${count} ${tier.title}${count > 1 && !tier.title.toLowerCase().endsWith('s') && !tier.title.toLowerCase().includes('children') ? 's' : ''} + `;
+                tierBreakdown.push({ title: tier.title, quantity: count, price: tier.price });
             }
         });
         if (participantsString.endsWith(' + ')) {
@@ -122,6 +124,11 @@ export default function BookingFlow({ visible, onClose, experience, selectedDate
         totalQuantity = adultCount + (childCount || 0);
         computedBaseAmount = (adultUnitAmount * adultCount) + (childUnitAmount * (childCount || 0));
         participantsString = `${adultCount} ${adultCount === 1 ? 'Adult' : 'Adults'} ${(childCount || 0) > 0 ? ` + ${childCount} ${childCount === 1 ? 'Child' : 'Children'}` : ''}`;
+        
+        tierBreakdown.push({ title: 'Adult', quantity: adultCount, price: adultUnitAmount });
+        if (childCount && childCount > 0) {
+            tierBreakdown.push({ title: 'Child', quantity: childCount, price: childUnitAmount });
+        }
     }
 
     const baseAmount = computedBaseAmount;
@@ -165,6 +172,8 @@ export default function BookingFlow({ visible, onClose, experience, selectedDate
                     totalPrice: totalAmount,
                     paymentStatus,
                     paymentId: paymentId || undefined,
+                    tierBreakdown: tierBreakdown,
+                    travellerInfo: { name, email, phone },
                 })
             });
 
