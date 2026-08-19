@@ -7,7 +7,7 @@ import ExperienceDetail from "../../components/ExperienceDetail";
 import { API_URL } from "../../constants/Config";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, router } from "expo-router";
-import { getDisplayPrice } from "../../utils/currency";
+import { getDisplayPrice, formatPrice } from "../../utils/currency";
 import { getImageUrl } from "../../utils/image";
 
 const { width } = Dimensions.get('window');
@@ -125,7 +125,7 @@ export default function CartScreen() {
         }
     };
 
-    const total = cartItems.reduce((sum, item) => sum + (getDisplayPrice(item.experience) * item.quantity), 0);
+    const total = cartItems.reduce((sum, item) => sum + ((item.priceAtAdd || getDisplayPrice(item.experience)) * item.quantity), 0);
     const taxes = Math.round(total * 0.18);
     const grandTotal = total + taxes;
 
@@ -134,22 +134,22 @@ export default function CartScreen() {
     const cartSummaryExperience = firstItem ? {
         _id: firstItem.experience._id,
         id: firstItem.experience._id,
-        title: firstItem.experience.title || 'Cart Checkout',
+        title: cartItems.length > 1 ? cartItems.map(i => i.experience.title).join(', ') : (firstItem.experience.title || 'Cart Checkout'),
         category: firstItem.experience.category || 'Experience',
         images: firstItem.experience.images || [],
         image: getImageUrl(firstItem.experience) || '',
-        price: String(getDisplayPrice(firstItem.experience)),
-        currency: 'INR',
-        rating: 0,
+        currency: firstItem.experience.currency || 'INR',
         numReviews: 0,
     } : null;
 
     const renderCartItem = ({ item }: { item: CartItem }) => (
-        <View className="bg-white dark:bg-[#1c1c1e] rounded-3xl p-4 mb-4 border border-gray-100 dark:border-gray-800 shadow-sm">
+        <TouchableOpacity 
+            activeOpacity={0.95} 
+            onPress={() => setSelectedExperience(item.experience)}
+            className="bg-white dark:bg-[#1c1c1e] rounded-3xl p-4 mb-4 border border-gray-100 dark:border-gray-800 shadow-sm"
+        >
             <View className="flex-row">
-                <TouchableOpacity onPress={() => setSelectedExperience(item.experience)}>
-                    <Image source={{ uri: getImageUrl(item.experience) || 'https://via.placeholder.com/150' }} className="w-24 h-24 rounded-2xl bg-gray-200" />
-                </TouchableOpacity>
+                <Image source={{ uri: getImageUrl(item.experience) || 'https://via.placeholder.com/150' }} className="w-24 h-24 rounded-2xl bg-gray-200" />
 
                 <View className="flex-1 ml-4 justify-between">
                     <View>
@@ -167,7 +167,7 @@ export default function CartScreen() {
                     </View>
 
                     <View className="flex-row justify-between items-center mt-2">
-                        <Text className="text-[#002b5c] dark:text-[#58a6ff] font-black text-base">₹{getDisplayPrice(item.experience) * item.quantity}</Text>
+                        <Text className="text-[#002b5c] dark:text-[#58a6ff] font-black text-base">{formatPrice((item.priceAtAdd || getDisplayPrice(item.experience)) * item.quantity, item.experience?.currency)}</Text>
 
                         <View className="flex-row items-center bg-gray-50 dark:bg-gray-800 rounded-full border border-gray-100 dark:border-gray-700 px-2 py-1">
                             <TouchableOpacity onPress={() => updateQuantity(item._id, item.quantity - 1)} className="w-8 h-8 items-center justify-center">
@@ -181,7 +181,7 @@ export default function CartScreen() {
                     </View>
                 </View>
             </View>
-        </View>
+        </TouchableOpacity>
     );
 
     return (
@@ -196,12 +196,12 @@ export default function CartScreen() {
                     <ActivityIndicator size="large" color="#002b5c" />
                 </View>
             ) : cartItems.length > 0 ? (
-                <>
+                <View style={{ flex: 1 }}>
                     <FlatList
                         data={cartItems}
                         renderItem={renderCartItem}
                         keyExtractor={item => item._id}
-                        contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 10, paddingBottom: 150 }}
+                        contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 10, paddingBottom: 250 }}
                         showsVerticalScrollIndicator={false}
                         refreshControl={
                             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
@@ -210,32 +210,32 @@ export default function CartScreen() {
 
                     <View
                         style={{ paddingBottom: (insets?.bottom ?? 0) + 10 }}
-                        className="absolute bottom-20 left-0 right-0 bg-white dark:bg-[#1c1c1e] border-t border-gray-100 dark:border-gray-800 px-6 pt-6 shadow-2xl"
+                        className="absolute bottom-0 left-0 right-0 bg-white dark:bg-[#1c1c1e] border-t border-gray-100 dark:border-gray-800 px-6 pt-6 pb-24 shadow-2xl"
                     >
                         <View className="flex-row justify-between items-center mb-2">
                             <Text className="text-gray-500 dark:text-gray-400">Subtotal</Text>
-                            <Text className="text-gray-900 dark:text-white font-bold">₹{total.toLocaleString()}</Text>
+                            <Text className="text-gray-900 dark:text-white font-bold">{formatPrice(total, cartItems[0]?.experience?.currency)}</Text>
                         </View>
                         <View className="flex-row justify-between items-center mb-4">
                             <Text className="text-gray-500 dark:text-gray-400">Taxes (GST 18%)</Text>
-                            <Text className="text-gray-900 dark:text-white font-bold">₹{taxes.toLocaleString()}</Text>
+                            <Text className="text-gray-900 dark:text-white font-bold">{formatPrice(taxes, cartItems[0]?.experience?.currency)}</Text>
                         </View>
 
                         <TouchableOpacity
                             onPress={() => setIsBookingFlowVisible(true)}
-                            className="bg-[#002b5c] dark:bg-[#58a6ff] w-full py-5 rounded-full flex-row items-center justify-center shadow-lg"
+                            className="bg-[#002b5c] dark:bg-[#58a6ff] w-full py-5 rounded-full flex-row items-center justify-center shadow-lg mb-20"
                         >
                             <View className="flex-row items-center">
                                 <Text className="text-white font-black text-lg mr-2">Checkout</Text>
                                 <View className="h-6 w-[1.5px] bg-white/30 mx-3" />
-                                <Text className="text-white font-black text-lg">₹{grandTotal.toLocaleString()}</Text>
+                                <Text className="text-white font-black text-lg">{formatPrice(grandTotal, cartItems[0]?.experience?.currency)}</Text>
                             </View>
                             <View className="absolute right-6">
                                 <Ionicons name="arrow-forward" size={20} color="white" />
                             </View>
                         </TouchableOpacity>
                     </View>
-                </>
+                </View>
             ) : (
                 <View className="flex-1 items-center justify-center px-10 pb-20">
                     <View className="w-24 h-24 bg-gray-50 dark:bg-[#1c1c1e] rounded-full items-center justify-center mb-6">
@@ -268,6 +268,7 @@ export default function CartScreen() {
                     selectedDate={cartItems[0]?.date || new Date().toISOString()}
                     selectedTime={cartItems[0]?.timeSlot || null}
                     adultCount={cartItems[0]?.quantity || 1}
+                    cartItems={cartItems}
                 />
             )}
         </View>

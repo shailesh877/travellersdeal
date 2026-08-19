@@ -193,7 +193,7 @@ const UserProfile = () => {
                                                         </div>
                                                         <div className="flex justify-between items-start mb-2">
                                                             <h4 className="text-xl font-bold text-gray-900 line-clamp-2">{booking.experience?.title}</h4>
-                                                            <span className="text-lg font-bold text-primary whitespace-nowrap">${booking.totalPrice}</span>
+                                                            <span className="text-lg font-bold text-primary whitespace-nowrap">{{ 'USD': '$', 'EUR': '€', 'GBP': '£', 'INR': '₹', 'AED': 'AED ', 'JPY': '¥' }[booking.currency || booking.experience?.bookingOptions?.[0]?.availabilityAndPricing?.currency || booking.experience?.currency] || '$'}{booking.totalPrice}</span>
                                                         </div>
                                                         <div className="space-y-2 mb-4">
                                                             <div className="flex items-center gap-2 text-sm text-gray-600">
@@ -300,7 +300,7 @@ const UserProfile = () => {
                                                     <div className="flex items-center justify-between">
                                                         <span className="text-xs text-gray-400">{exp.duration}</span>
                                                         <span className="font-bold text-gray-900">
-                                                            {exp.bookingOptions?.[0]?.availabilityAndPricing?.currency || exp.currency === 'INR' ? '₹' : '$'}{getBasePrice(exp)}
+                                                            {{ 'USD': '$', 'EUR': '€', 'GBP': '£', 'INR': '₹', 'AED': 'AED ', 'JPY': '¥' }[exp.bookingOptions?.[0]?.availabilityAndPricing?.currency || exp.currency] || '₹'}{getBasePrice(exp)}
                                                         </span>
                                                     </div>
                                                 </div>
@@ -317,14 +317,14 @@ const UserProfile = () => {
             {/* Booking Details Modal */}
             {selectedBooking && (
                 <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 backdrop-blur-sm" onClick={() => setSelectedBooking(null)}>
-                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden animate-fade-in" onClick={e => e.stopPropagation()}>
-                        <div className="flex justify-between items-center p-6 border-b border-gray-100">
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden animate-fade-in" onClick={e => e.stopPropagation()}>
+                        <div className="flex justify-between items-center p-6 border-b border-gray-100 shrink-0">
                             <h3 className="text-xl font-bold text-gray-900">Booking Details</h3>
                             <button onClick={() => setSelectedBooking(null)} className="text-gray-400 hover:text-gray-700 transition-colors p-2 rounded-full hover:bg-gray-100">
                                 <FaTimes />
                             </button>
                         </div>
-                        <div className="p-6 space-y-5">
+                        <div className="p-6 space-y-5 overflow-y-auto flex-1">
                             <div className="flex items-center gap-4">
                                 <img 
                                     src={selectedBooking.experience?.images?.[0] ? (selectedBooking.experience.images[0].startsWith('http') ? selectedBooking.experience.images[0] : `${API_URL.replace('/api', '')}${selectedBooking.experience.images[0]}`) : 'https://via.placeholder.com/100'} 
@@ -383,19 +383,19 @@ const UserProfile = () => {
                             <div className="border-t border-gray-100 pt-4 space-y-2">
                                 <div className="flex justify-between items-center">
                                     <span className="text-gray-600 font-medium">Subtotal</span>
-                                    <span className="font-semibold text-gray-900">${(selectedBooking.totalPrice / 1.18).toFixed(2)}</span>
+                                    <span className="font-semibold text-gray-900">{{ 'USD': '$', 'EUR': '€', 'GBP': '£', 'INR': '₹', 'AED': 'AED ', 'JPY': '¥' }[selectedBooking.currency || selectedBooking.experience?.bookingOptions?.[0]?.availabilityAndPricing?.currency || selectedBooking.experience?.currency] || '$'}{(selectedBooking.totalPrice / 1.18).toFixed(2)}</span>
                                 </div>
                                 <div className="flex justify-between items-center">
                                     <span className="text-gray-600 font-medium">GST (18%)</span>
-                                    <span className="font-semibold text-gray-900">${(selectedBooking.totalPrice - (selectedBooking.totalPrice / 1.18)).toFixed(2)}</span>
+                                    <span className="font-semibold text-gray-900">{{ 'USD': '$', 'EUR': '€', 'GBP': '£', 'INR': '₹', 'AED': 'AED ', 'JPY': '¥' }[selectedBooking.currency || selectedBooking.experience?.bookingOptions?.[0]?.availabilityAndPricing?.currency || selectedBooking.experience?.currency] || '$'}{(selectedBooking.totalPrice - (selectedBooking.totalPrice / 1.18)).toFixed(2)}</span>
                                 </div>
                                 <div className="border-t border-gray-100 pt-2 mt-2 flex justify-between items-center">
                                     <span className="text-gray-900 font-bold">Total Amount Paid</span>
-                                    <span className="text-2xl font-bold text-primary">${selectedBooking.totalPrice}</span>
+                                    <span className="text-2xl font-bold text-primary">{{ 'USD': '$', 'EUR': '€', 'GBP': '£', 'INR': '₹', 'AED': 'AED ', 'JPY': '¥' }[selectedBooking.currency || selectedBooking.experience?.bookingOptions?.[0]?.availabilityAndPricing?.currency || selectedBooking.experience?.currency] || '$'}{selectedBooking.totalPrice}</span>
                                 </div>
                             </div>
                         </div>
-                        <div className="p-6 bg-gray-50 border-t border-gray-100 flex gap-4">
+                        <div className="p-6 bg-gray-50 border-t border-gray-100 flex gap-4 shrink-0">
                             <Link to={`/experience/${selectedBooking.experience?._id}`} className="flex-1 text-center bg-white border border-gray-200 text-gray-700 py-3 rounded-xl font-bold hover:bg-gray-50 transition-colors">
                                 View Tour Page
                             </Link>

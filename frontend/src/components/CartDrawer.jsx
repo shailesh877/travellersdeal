@@ -32,7 +32,7 @@ const CartDrawer = () => {
 
     const displayTotal = total > 0 ? total : calculatedTotal;
     const currency = items.length > 0 && items[0].experience?.currency ? items[0].experience.currency : 'USD';
-    const currencySymbol = currency === 'INR' ? '₹' : (currency === 'EUR' ? '€' : (currency === 'GBP' ? '£' : '$'));
+    const currencySymbol = { 'USD': '$', 'EUR': '€', 'GBP': '£', 'INR': '₹', 'AED': 'AED ', 'JPY': '¥' }[currency] || '$';
 
     const handleCheckout = () => {
         setCartOpen(false);
@@ -61,7 +61,7 @@ const CartDrawer = () => {
             navigate('/checkout', {
                 state: {
                     amount: displayTotal,
-                    experienceTitle: `Cart Bundle (${items.length} items)`,
+                    experienceTitle: items.map(item => item.experience?.title).join(', '),
                     currency: currency,
                     experienceId: items[0]?.experience?._id, // fallback for booking
                     date: items[0]?.date,
@@ -70,7 +70,15 @@ const CartDrawer = () => {
                     adultSlots: 1, 
                     childSlots: 0,
                     adultPrice: displayTotal,
-                    childPrice: 0
+                    childPrice: 0,
+                    isCartCheckout: true,
+                    cartItems: items.map(i => ({
+                        experienceId: i.experience._id,
+                        date: i.date,
+                        timeSlot: i.timeSlot,
+                        slots: i.quantity,
+                        totalPrice: getItemPrice(i) * i.quantity
+                    }))
                 }
             });
         }
@@ -156,7 +164,7 @@ const CartDrawer = () => {
                                             </div>
                                             <div className="flex items-center gap-3">
                                                 <span className="font-bold text-gray-900">
-                                                    {exp?.currency === 'INR' ? '₹' : (exp?.currency === 'EUR' ? '€' : (exp?.currency === 'GBP' ? '£' : '$'))}{(getItemPrice(item) * item.quantity).toFixed(2)}
+                                                    {{ 'USD': '$', 'EUR': '€', 'GBP': '£', 'INR': '₹', 'AED': 'AED ', 'JPY': '¥' }[exp?.currency] || '$'}{(getItemPrice(item) * item.quantity).toFixed(2)}
                                                 </span>
                                                 <button onClick={() => removeItem(item._id)} className="text-red-400 hover:text-red-600 transition-colors p-1">
                                                     <FaTrash className="text-xs" />

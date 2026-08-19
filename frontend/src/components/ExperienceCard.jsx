@@ -121,7 +121,8 @@ const ExperienceCard = ({ experience }) => {
                                 {(() => {
                                     const displayPrice = getBasePrice(experience);
                                     const displayCurrency = experience.bookingOptions?.[0]?.availabilityAndPricing?.currency || experience.currency || 'USD';
-                                    return (displayCurrency === 'INR' ? '₹' : (displayCurrency === 'EUR' ? '€' : (displayCurrency === 'GBP' ? '£' : '$'))) + displayPrice;
+                                    const currencySymbol = { 'USD': '$', 'EUR': '€', 'GBP': '£', 'INR': '₹', 'AED': 'AED ', 'JPY': '¥' }[displayCurrency] || '₹';
+                                    return currencySymbol + displayPrice;
                                 })()}
                             </span>
                         </div>

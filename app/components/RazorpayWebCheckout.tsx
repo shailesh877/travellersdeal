@@ -1,5 +1,6 @@
 import React, { useRef } from 'react';
 import { View, Text, TouchableOpacity, Modal, ActivityIndicator, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -123,15 +124,8 @@ export default function RazorpayWebCheckout({ visible, options, onSuccess, onFai
 
     return (
         <Modal visible={visible} animationType="slide" onRequestClose={onDismiss}>
-            <View style={styles.container}>
-                {/* Header */}
-                <View style={styles.header}>
-                    <TouchableOpacity onPress={onDismiss} style={styles.closeBtn}>
-                        <Ionicons name="close" size={24} color="#374151" />
-                    </TouchableOpacity>
-                    <Text style={styles.headerTitle}>Secure Payment</Text>
-                    <View style={styles.closeBtn} />
-                </View>
+            <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+                {/* Header (Removed as per request since Razorpay has its own UI) */}
 
                 {/* WebView */}
                 <WebView
@@ -157,7 +151,7 @@ export default function RazorpayWebCheckout({ visible, options, onSuccess, onFai
                     <Ionicons name="shield-checkmark-outline" size={14} color="#10b981" />
                     <Text style={styles.footerText}>Secured by Razorpay · 256-bit SSL</Text>
                 </View>
-            </View>
+            </SafeAreaView>
         </Modal>
     );
 }

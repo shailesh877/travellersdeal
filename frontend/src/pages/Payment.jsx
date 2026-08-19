@@ -17,7 +17,9 @@ const Payment = () => {
         date,
         slots = 1,
         timeSlot,
-        tierSelections = []
+        tierSelections = [],
+        isCartCheckout = false,
+        cartItems = []
     } = location.state || {};
 
     const [loading, setLoading] = useState(false);
@@ -35,6 +37,11 @@ const Payment = () => {
     const originalTotal = Math.round(amount * 1.18);
     const discount = originalTotal - amount;
 
+    const baseAmount = location.state?.amount || cartItems.reduce((sum, item) => {
+        const itemPrice = item.priceAtAdd || (item.experience?.price ? parseFloat(item.experience.price) : 0);
+        return sum + (itemPrice * item.quantity);
+    }, 0) || 0;
+    
     const gstAmount = Math.round(amount * 0.18 * 100) / 100;
     const totalAmount = amount + gstAmount;
 
@@ -88,16 +95,34 @@ const Payment = () => {
 
                         if (data.status === 'success') {
                             try {
-                                await axios.post(
-                                    `${API_URL}/bookings`,
-                                    { 
-                                        experienceId, date, slots, timeSlot, 
-                                        paymentStatus: 'paid', paymentId: response.razorpay_payment_id, totalPrice: totalAmount,
-                                        tierBreakdown: tierSelections,
-                                        travellerInfo: { name: travellerName, email: travellerEmail, phone: travellerPhone }
-                                    },
-                                    config
-                                );
+                                if (isCartCheckout) {
+                                    const itemsWithTax = cartItems.map(item => ({
+                                        ...item,
+                                        totalPrice: item.totalPrice + (item.totalPrice * 0.18)
+                                    }));
+                                    await axios.post(
+                                        `${API_URL}/bookings/cart`,
+                                        { 
+                                            paymentStatus: 'paid', paymentId: response.razorpay_payment_id,
+                                            travellerInfo: { name: travellerName, email: travellerEmail, phone: travellerPhone },
+                                            items: itemsWithTax,
+                                            currency
+                                        },
+                                        config
+                                    );
+                                } else {
+                                    await axios.post(
+                                        `${API_URL}/bookings`,
+                                        { 
+                                            experienceId, date, slots, timeSlot, 
+                                            paymentStatus: 'paid', paymentId: response.razorpay_payment_id, totalPrice: totalAmount,
+                                            tierBreakdown: tierSelections,
+                                            travellerInfo: { name: travellerName, email: travellerEmail, phone: travellerPhone },
+                                            currency
+                                        },
+                                        config
+                                    );
+                                }
                                 navigate('/completion', { state: { paymentMethod: 'online' } });
                             } catch (bookingError) {
                                 console.error('Booking creation failed:', bookingError);
@@ -131,16 +156,34 @@ const Payment = () => {
             const token = localStorage.getItem('token');
             const config = { headers: { Authorization: `Bearer ${token}` } };
 
-            await axios.post(
-                `${API_URL}/bookings`,
-                { 
-                    experienceId, date, slots, timeSlot, 
-                    paymentStatus: 'pending', paymentId: 'pay_later', totalPrice: totalAmount,
-                    tierBreakdown: tierSelections,
-                    travellerInfo: { name: travellerName, email: travellerEmail, phone: travellerPhone }
-                },
-                config
-            );
+            if (isCartCheckout) {
+                const itemsWithTax = cartItems.map(item => ({
+                    ...item,
+                    totalPrice: item.totalPrice + (item.totalPrice * 0.18)
+                }));
+                await axios.post(
+                    `${API_URL}/bookings/cart`,
+                    { 
+                        paymentStatus: 'pending', paymentId: 'pay_later',
+                        travellerInfo: { name: travellerName, email: travellerEmail, phone: travellerPhone },
+                        items: itemsWithTax,
+                        currency
+                    },
+                    config
+                );
+            } else {
+                await axios.post(
+                    `${API_URL}/bookings`,
+                    { 
+                        experienceId, date, slots, timeSlot, 
+                        paymentStatus: 'pending', paymentId: 'pay_later', totalPrice: totalAmount,
+                        tierBreakdown: tierSelections,
+                        travellerInfo: { name: travellerName, email: travellerEmail, phone: travellerPhone },
+                        currency
+                    },
+                    config
+                );
+            }
 
             navigate('/completion', { state: { paymentMethod: 'pay_later' } });
         } catch (bookingError) {
@@ -215,6 +258,8 @@ const Payment = () => {
                                                         {idx < tierSelections.length - 1 && <span className="mx-1 text-gray-300">|</span>}
                                                     </span>
                                                 ))
+                                            ) : isCartCheckout ? (
+                                                <span>Multiple Experiences Selected</span>
                                             ) : (
                                                 <span>{slots} Participant{slots > 1 ? 's' : ''}</span>
                                             )}
@@ -276,6 +321,8 @@ const Payment = () => {
                                                         {tier.quantity} {tier.title}
                                                     </span>
                                                 ))
+                                            ) : isCartCheckout ? (
+                                                <span>Multiple Experiences Selected</span>
                                             ) : (
                                                 <span>{slots} Participant{slots > 1 ? 's' : ''}</span>
                                             )}
@@ -302,28 +349,7 @@ const Payment = () => {
                                         <p className="text-xs text-gray-400">All taxes included</p>
                                     </div>
                                 </div>
-                                {/* Coupon */}
-                                {!couponApplied ? (
-                                    <div className="mt-4 flex gap-2">
-                                        <input
-                                            type="text"
-                                            value={coupon}
-                                            onChange={(e) => setCoupon(e.target.value)}
-                                            className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-primary outline-none"
-                                            placeholder="Coupon code"
-                                        />
-                                        <button
-                                            className="px-4 py-2 bg-gray-100 text-gray-700 text-sm font-bold rounded-lg hover:bg-gray-200 transition"
-                                            onClick={() => coupon && setCouponApplied(true)}
-                                        >
-                                            Apply
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <div className="mt-4 flex items-center gap-2 text-green-600 text-sm font-medium bg-green-50 rounded-lg px-4 py-2">
-                                        <FaCheck /> Coupon "{coupon}" applied!
-                                    </div>
-                                )}
+
                             </div>
 
                             {/* Pay Button */}

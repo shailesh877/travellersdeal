@@ -4,6 +4,7 @@ import * as Sharing from 'expo-sharing';
 import React, { useMemo } from "react";
 import { Dimensions, Image, Modal, Platform, ScrollView, Text, TouchableOpacity, View, Linking } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { formatPrice } from "../utils/currency";
 
 const { width } = Dimensions.get('window');
 
@@ -21,10 +22,13 @@ interface Booking {
         location?: { city: string; country: string };
         duration: string;
         itinerary: ItineraryItem[];
+        currency?: string;
+        bookingOptions?: any[];
     };
     date: string;
     slots?: number;
     totalPrice: number;
+    currency?: string;
     status: string;
     paymentStatus: string;
     paymentId?: string;
@@ -62,7 +66,7 @@ export default function BookingDetail({ visible, booking, onClose }: Props) {
             id: b._id,
             title: b.experience?.title || 'Trip',
             date: b.date,
-            amount: `₹${b.totalPrice}`,
+            amount: formatPrice(b.totalPrice, b.currency || b.experience?.bookingOptions?.[0]?.availabilityAndPricing?.currency || b.experience?.currency),
             status: b.status,
             image: b.experience?.images?.[0] || '',
             itinerary: b.experience?.itinerary?.map(i => ({
@@ -72,7 +76,7 @@ export default function BookingDetail({ visible, booking, onClose }: Props) {
                 time: 'N/A'
             })),
             payment: {
-                total: `₹${b.totalPrice}`,
+                total: formatPrice(b.totalPrice, b.currency || b.experience?.bookingOptions?.[0]?.availabilityAndPricing?.currency || b.experience?.currency),
                 transactionId: b.paymentId
             },
             raw: b
@@ -163,7 +167,10 @@ export default function BookingDetail({ visible, booking, onClose }: Props) {
                         <div class="info-item" style="grid-column: span 2;">
                             <div class="label">Participants</div>
                             <div class="value">
-                                ${actualBooking.tierBreakdown.map((t: any) => `${t.quantity}x ${t.title} (₹${t.price * t.quantity})`).join('<br/>')}
+                                ${actualBooking.tierBreakdown?.length > 0
+                    ? actualBooking.tierBreakdown.map((t: any) => `${t.quantity}x ${t.title} (${formatPrice(t.price * t.quantity, experience.currency)})`).join('<br/>')
+                    : `${actualBooking.adultCount || 1}x Adult <br/> ${actualBooking.childCount ? actualBooking.childCount + 'x Child' : ''}`
+                }
                             </div>
                         </div>` : `
                         <div class="info-item">
@@ -177,13 +184,13 @@ export default function BookingDetail({ visible, booking, onClose }: Props) {
                     <div class="section-title">Payment Summary</div>
                     <div class="payment-box">
                         <div class="info-grid">
-                            <div class="info-item">
+                            <div class="row">
                                 <div class="label">Subtotal</div>
-                                <div class="value">₹${(actualBooking.totalPrice / 1.18).toFixed(2)}</div>
+                                <div class="value">${formatPrice((actualBooking.totalPrice / 1.18).toFixed(2), actualBooking.currency || experience?.bookingOptions?.[0]?.availabilityAndPricing?.currency || experience?.currency).replace('$', '')}</div>
                             </div>
-                            <div class="info-item">
-                                <div class="label">GST (18%)</div>
-                                <div class="value">₹${(actualBooking.totalPrice - (actualBooking.totalPrice / 1.18)).toFixed(2)}</div>
+                            <div class="row">
+                                <div class="label">Taxes & Fees (GST 18%)</div>
+                                <div class="value">${formatPrice((actualBooking.totalPrice - (actualBooking.totalPrice / 1.18)).toFixed(2), actualBooking.currency || experience?.bookingOptions?.[0]?.availabilityAndPricing?.currency || experience?.currency).replace('$', '')}</div>
                             </div>
                             <div class="info-item">
                                 <div class="label">Total Amount Paid</div>
@@ -245,7 +252,7 @@ export default function BookingDetail({ visible, booking, onClose }: Props) {
             presentationStyle="pageSheet"
             onRequestClose={onClose}
         >
-            <View className="flex-1 bg-gray-50 dark:bg-black">
+            <View className="flex-1 bg-gray-50 dark:bg-black" style={Platform.OS === 'web' ? { height: '100vh' as any, maxHeight: '100vh' as any } : {}}>
                 {/* HEADER */}
                 <View
                     style={{ paddingTop: (insets?.top ?? 0) + 10 }}
@@ -260,7 +267,7 @@ export default function BookingDetail({ visible, booking, onClose }: Props) {
                     </TouchableOpacity>
                 </View>
 
-                <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
+                <ScrollView showsVerticalScrollIndicator={false} className="flex-1" contentContainerStyle={{ paddingBottom: 40, flexGrow: 1 }}>
                     {/* OVERVIEW CARD */}
                     <View className="bg-white dark:bg-[#1c1c1e] m-6 rounded-3xl p-6 shadow-sm border border-transparent dark:border-gray-800">
                         <Text className="text-gray-900 dark:text-white font-extrabold text-xl mb-4">{displayBooking.title}</Text>
@@ -317,7 +324,9 @@ export default function BookingDetail({ visible, booking, onClose }: Props) {
                                     {actualBooking.tierBreakdown.map((tier: any, idx: number) => (
                                         <View key={idx} className="flex-row justify-between mb-1">
                                             <Text className="text-gray-700 dark:text-gray-300 text-sm">{tier.quantity} x {tier.title}</Text>
-                                            <Text className="text-gray-900 dark:text-white font-bold text-sm">₹{tier.price * tier.quantity}</Text>
+                                            <View className="items-end">
+                                                <Text className="text-gray-900 dark:text-white font-bold text-sm">{formatPrice(tier.price * tier.quantity, experience.currency)}</Text>
+                                            </View>
                                         </View>
                                     ))}
                                 </View>
@@ -375,18 +384,18 @@ export default function BookingDetail({ visible, booking, onClose }: Props) {
 
                         {/* Price Summary */}
                         <View className="bg-gray-50 dark:bg-gray-900/30 rounded-2xl p-4 mb-6">
-                            <View className="flex-row justify-between mb-2">
-                                <Text className="text-gray-600 dark:text-gray-400">Subtotal</Text>
-                                <Text className="text-gray-900 dark:text-white font-semibold">₹{(actualBooking.totalPrice / 1.18).toFixed(2)}</Text>
+                            <View className="flex-row justify-between items-center mb-3">
+                                <Text className="text-gray-500 dark:text-gray-400 font-medium">Subtotal</Text>
+                                <Text className="text-gray-900 dark:text-white font-semibold">{formatPrice((actualBooking.totalPrice / 1.18).toFixed(2), actualBooking.currency || experience?.bookingOptions?.[0]?.availabilityAndPricing?.currency || experience?.currency)}</Text>
                             </View>
-                            <View className="flex-row justify-between mb-2">
-                                <Text className="text-gray-600 dark:text-gray-400">GST (18%)</Text>
-                                <Text className="text-gray-900 dark:text-white font-semibold">₹{(actualBooking.totalPrice - (actualBooking.totalPrice / 1.18)).toFixed(2)}</Text>
+                            <View className="flex-row justify-between items-center pb-4 border-b border-gray-100 dark:border-gray-800">
+                                <Text className="text-gray-500 dark:text-gray-400 font-medium">Taxes & Fees (18%)</Text>
+                                <Text className="text-gray-900 dark:text-white font-semibold">{formatPrice((actualBooking.totalPrice - (actualBooking.totalPrice / 1.18)).toFixed(2), actualBooking.currency || experience?.bookingOptions?.[0]?.availabilityAndPricing?.currency || experience?.currency)}</Text>
                             </View>
                             <View className="h-px bg-gray-200 dark:bg-gray-700 my-2" />
-                            <View className="flex-row justify-between">
-                                <Text className="text-gray-900 dark:text-white font-bold text-lg">Total</Text>
-                                <Text className="text-[#002b5c] dark:text-[#58a6ff] font-bold text-xl">₹{actualBooking.totalPrice}</Text>
+                            <View className="flex-row justify-between items-center pt-4">
+                                <Text className="text-gray-900 dark:text-white font-bold text-lg">Total Paid</Text>
+                                <Text className="text-[#002b5c] dark:text-[#58a6ff] font-bold text-xl">{formatPrice(actualBooking.totalPrice, actualBooking.currency || experience?.bookingOptions?.[0]?.availabilityAndPricing?.currency || experience?.currency)}</Text>
                             </View>
                         </View>
 
@@ -421,7 +430,7 @@ export default function BookingDetail({ visible, booking, onClose }: Props) {
                             <Ionicons name="download-outline" size={20} color="#6b7280" />
                             <Text className="text-[#002b5c] dark:text-[#58a6ff] font-black text-[10px] mt-1 uppercase tracking-tighter">Ticket</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity 
+                        <TouchableOpacity
                             onPress={() => Linking.openURL('https://travellersdeal.com/contact')}
                             className="flex-1 bg-white dark:bg-[#1c1c1e] border border-gray-200 dark:border-gray-800 py-4 rounded-2xl items-center shadow-sm"
                         >

@@ -74,6 +74,12 @@ export default function EditProfileScreen() {
     const handleSaveProfile = async () => {
         if (!name.trim()) { Alert.alert("Error", "Name cannot be empty."); return; }
         if (!email.trim()) { Alert.alert("Error", "Email cannot be empty."); return; }
+        
+        const cleanedPhone = phone.trim().replace(/\D/g, '');
+        if (cleanedPhone && cleanedPhone.length !== 10) {
+            Alert.alert("Invalid Number", "Please enter a valid 10-digit mobile number.");
+            return;
+        }
 
         setSaving(true);
         try {
@@ -160,7 +166,7 @@ export default function EditProfileScreen() {
     return (
         <KeyboardAvoidingView
             className="flex-1 bg-white dark:bg-black"
-            behavior={Platform.OS === "ios" ? "padding" : undefined}
+            behavior={Platform.OS === "ios" ? "padding" : "padding"}
             style={{ paddingTop: insets.top }}
         >
             {/* Header */}
@@ -184,7 +190,8 @@ export default function EditProfileScreen() {
             <ScrollView
                 showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps="handled"
-                contentContainerStyle={{ padding: 20, paddingBottom: 60 }}
+                automaticallyAdjustKeyboardInsets={true}
+                contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
             >
                 {/* Avatar Placeholder */}
                 <View className="items-center mb-8">
@@ -213,24 +220,26 @@ export default function EditProfileScreen() {
                     <Text className={labelClass}>Email Address</Text>
                     <TextInput
                         value={email}
-                        onChangeText={setEmail}
                         placeholder="your@email.com"
                         placeholderTextColor="#9ca3af"
-                        className={inputClass}
+                        className={`${inputClass} opacity-60 bg-gray-50 dark:bg-gray-900`}
                         keyboardType="email-address"
                         autoCapitalize="none"
+                        editable={false}
                     />
+                    <Text className="text-gray-400 text-[10px] mt-1 ml-1">Email address cannot be changed.</Text>
                 </View>
 
                 <View className="mb-8">
                     <Text className={labelClass}>Phone Number</Text>
                     <TextInput
                         value={phone}
-                        onChangeText={setPhone}
-                        placeholder="+91 00000 00000"
+                        onChangeText={(text) => setPhone(text.replace(/[^0-9]/g, ''))}
+                        placeholder="0000000000"
                         placeholderTextColor="#9ca3af"
                         className={inputClass}
-                        keyboardType="phone-pad"
+                        keyboardType="number-pad"
+                        maxLength={10}
                     />
                 </View>
 

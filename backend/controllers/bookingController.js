@@ -2,6 +2,7 @@ const Booking = require('../models/Booking');
 const Experience = require('../models/Experience');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
+const Cart = require('../models/Cart');
 let Expo;
 let expo;
 
@@ -30,7 +31,7 @@ async function getExpo() {
 // @route   POST /api/bookings
 // @access  Private
 const createBooking = async (req, res) => {
-    const { experienceId, date, slots, timeSlot, paymentStatus, paymentId, totalPrice: clientTotalPrice, tierBreakdown, travellerInfo } = req.body;
+    const { experienceId, date, slots, timeSlot, paymentStatus, paymentId, totalPrice: clientTotalPrice, tierBreakdown, travellerInfo, currency: clientCurrency } = req.body;
 
     try {
         // Guard against missing user (should be caught by auth middleware, but safety net)
@@ -57,6 +58,7 @@ const createBooking = async (req, res) => {
             tierBreakdown: tierBreakdown || [],
             travellerInfo: travellerInfo || {},
             totalPrice,
+            currency: clientCurrency || experience.bookingOptions?.[0]?.availabilityAndPricing?.currency || experience.currency || 'USD',
             status: 'pending',
             paymentStatus: paymentStatus || 'pending',
             paymentId: paymentId || null,
@@ -113,6 +115,93 @@ const createBooking = async (req, res) => {
     }
 };
 
+// @desc    Checkout entire cart
+// @route   POST /api/bookings/cart
+// @access  Private
+const checkoutCart = async (req, res) => {
+    const { paymentId, paymentStatus, travellerInfo, items, currency: clientCurrency } = req.body;
+
+    try {
+        if (!req.user) {
+            return res.status(401).json({ message: 'Not authorized' });
+        }
+
+        if (!items || items.length === 0) {
+            return res.status(400).json({ message: 'Cart is empty' });
+        }
+
+        const createdBookings = [];
+
+        // Iterate and create bookings
+        for (const item of items) {
+            const experience = await Experience.findById(item.experienceId);
+            if (!experience) continue;
+
+            const booking = new Booking({
+                user: req.user._id,
+                experience: item.experienceId,
+                date: item.date,
+                timeSlot: item.timeSlot || '10:00 AM',
+                slots: item.slots || 1,
+                tierBreakdown: item.tierBreakdown || [],
+                travellerInfo: travellerInfo || {},
+                totalPrice: item.totalPrice,
+                currency: item.currency || clientCurrency || experience.bookingOptions?.[0]?.availabilityAndPricing?.currency || experience.currency || 'USD',
+                status: 'pending',
+                paymentStatus: paymentStatus || 'pending',
+                paymentId: paymentId || null,
+            });
+
+            const savedBooking = await booking.save();
+            createdBookings.push(savedBooking);
+        }
+
+        // Clear the user's cart in DB
+        const cart = await Cart.findOne({ user: req.user._id });
+        if (cart) {
+            cart.items = [];
+            await cart.save();
+        }
+
+        // Send Single Push Notification for Bulk Booking
+        if (createdBookings.length > 0) {
+            try {
+                await Notification.create({
+                    user: req.user._id,
+                    title: 'Cart Booking Successful',
+                    message: `Your booking for ${createdBookings.length} experiences has been received.`,
+                    type: 'booking_update',
+                    data: { paymentId }
+                });
+
+                if (req.user.expoPushToken) {
+                    const { Expo, expo } = await getExpo();
+                    if (Expo.isExpoPushToken(req.user.expoPushToken)) {
+                        const messages = [{
+                            to: req.user.expoPushToken,
+                            sound: 'default',
+                            title: 'Cart Booking Successful 🎉',
+                            body: `Your booking for ${createdBookings.length} experiences has been placed successfully.`,
+                            data: { paymentId }
+                        }];
+                        const chunks = expo.chunkPushNotifications(messages);
+                        for (const chunk of chunks) {
+                            await expo.sendPushNotificationsAsync(chunk);
+                        }
+                    }
+                }
+            } catch (notifyError) {
+                console.error('Error sending push notification for cart checkout:', notifyError);
+            }
+        }
+
+        res.status(201).json({ message: 'Cart checked out successfully', bookings: createdBookings });
+    } catch (error) {
+        console.error('checkoutCart error:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
 // @desc    Get logged in user bookings
 // @route   GET /api/bookings/mybookings
 // @access  Private
@@ -120,7 +209,7 @@ const getMyBookings = async (req, res) => {
     try {
         const bookings = await Booking.find({ user: req.user._id }).populate(
             'experience',
-            'title pricingCategories images itinerary location duration'
+            'title pricingCategories images itinerary location duration currency bookingOptions'
         );
         res.json(bookings);
     } catch (error) {
@@ -215,12 +304,11 @@ const getVendorBookings = async (req, res) => {
         const experiences = await Experience.find({ vendor: req.user._id });
         const experienceIds = experiences.map((exp) => exp._id);
 
-        // Find bookings for these experiences
         const bookings = await Booking.find({
             experience: { $in: experienceIds },
         })
             .populate('user', 'name email')
-            .populate('experience', 'title');
+            .populate('experience', 'title currency bookingOptions');
 
         res.json(bookings);
     } catch (error) {
@@ -320,4 +408,4 @@ const updateBookingStatus = async (req, res) => {
     }
 };
 
-module.exports = { createBooking, getMyBookings, getVendorBookings, updateBookingStatus, cancelMyBooking };
+module.exports = { createBooking, checkoutCart, getMyBookings, getVendorBookings, updateBookingStatus, cancelMyBooking };

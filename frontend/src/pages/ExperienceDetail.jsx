@@ -2,7 +2,7 @@ import React, { useState, useEffect, useContext } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { API_URL } from '../config/api';
-import { FaStar, FaMapMarkerAlt, FaClock, FaCheck, FaInfoCircle, FaCalendarAlt, FaUserFriends, FaGlobe, FaMobileAlt, FaTimes, FaUtensils, FaHeart, FaShoppingCart, FaBus, FaUserTie, FaMapSigns, FaTag } from 'react-icons/fa';
+import { FaStar, FaMapMarkerAlt, FaClock, FaCheck, FaInfoCircle, FaCalendarAlt, FaUserFriends, FaGlobe, FaMobileAlt, FaTimes, FaUtensils, FaHeart, FaShoppingCart, FaBus, FaUserTie, FaMapSigns, FaTag, FaChevronDown } from 'react-icons/fa';
 import { AuthContext } from '../context/AuthContext';
 import { CartContext } from '../context/CartContext';
 
@@ -19,7 +19,12 @@ const ExperienceDetail = () => {
     const [reviews, setReviews] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
-    const [tierQuantities, setTierQuantities] = useState({ 0: 1 });
+    const [participantCounts, setParticipantCounts] = useState({
+        'Adult': 1, 'Infant': 0, 'Child': 0, 'Youth': 0, 'Senior': 0,
+        'Student (with ID)': 0, 'Student EU Citizens (with ID)': 0, 
+        'Military (with ID)': 0, 'EU Citizens (with ID)': 0
+    });
+    const [showTicketModal, setShowTicketModal] = useState(false);
     const [date, setDate] = useState('');
     const [timeSlot, setTimeSlot] = useState('');
     const [language, setLanguage] = useState('English');
@@ -34,20 +39,45 @@ const ExperienceDetail = () => {
     // Availability State
     const [availability, setAvailability] = useState({});
     const [fetchingAvailability, setFetchingAvailability] = useState(false);
+    const [isAvailabilityChecked, setIsAvailabilityChecked] = useState(false);
 
-    useEffect(() => {
-        if (experience?.bookingOptions?.length > 0) {
-            const opt = experience.bookingOptions[selectedOptionIndex];
-            const pricing = opt?.availabilityAndPricing;
-            if (pricing?.pricingTiers?.length > 0) {
-                const initial = {};
-                pricing.pricingTiers.forEach((t, i) => initial[i] = i === 0 ? 1 : 0);
-                setTierQuantities(initial);
-            } else {
-                setTierQuantities({ 0: 1 });
-            }
+    const calculateTotalAndTiers = (opt, pCounts) => {
+        let total = 0;
+        const tiers = opt?.availabilityAndPricing?.pricingTiers || [];
+        const basePrice = opt?.availabilityAndPricing?.price || 0;
+        let computedTierCounts = {};
+        let totalQty = 0;
+
+        if (tiers.length === 0) {
+            Object.entries(pCounts).forEach(([type, count]) => {
+                totalQty += count;
+            });
+            total = totalQty * basePrice;
+            computedTierCounts[0] = totalQty;
+            return { total, computedTierCountsObj: computedTierCounts, totalQty };
         }
-    }, [experience, selectedOptionIndex]);
+
+        Object.entries(pCounts).forEach(([type, count]) => {
+            if (count > 0) {
+                totalQty += count;
+                
+                let matchIdx = tiers.findIndex(t => t.title?.toLowerCase()?.includes(type.toLowerCase()));
+                if (matchIdx === -1 && type === 'Adult') matchIdx = tiers.findIndex(t => t.title?.toLowerCase()?.includes('adult'));
+                if (matchIdx === -1 && type === 'Child') matchIdx = tiers.findIndex(t => t.title?.toLowerCase()?.includes('child'));
+                if (matchIdx === -1 && type === 'Infant') matchIdx = tiers.findIndex(t => t.title?.toLowerCase()?.includes('infant'));
+                
+                if (matchIdx === -1) {
+                    matchIdx = tiers.findIndex(t => t.title?.toLowerCase()?.includes('adult'));
+                    if (matchIdx === -1) matchIdx = 0;
+                }
+
+                computedTierCounts[matchIdx] = (computedTierCounts[matchIdx] || 0) + count;
+                total += count * (tiers[matchIdx]?.price || 0);
+            }
+        });
+
+        return { total, computedTierCountsObj: computedTierCounts, totalQty };
+    };
 
     useEffect(() => {
         const fetchExperienceAndReviews = async () => {
@@ -124,7 +154,7 @@ const ExperienceDetail = () => {
         }
     };
 
-    const NavigateToCheckout = () => {
+    const NavigateToCheckout = (optIndex) => {
         if (!user) {
             navigate('/login', { state: { from: location } });
             return;
@@ -147,18 +177,19 @@ const ExperienceDetail = () => {
         let basePrice = 0;
 
         if (experience.bookingOptions?.length > 0) {
-            const opt = experience.bookingOptions[selectedOptionIndex];
+            const opt = experience.bookingOptions[optIndex];
+            setSelectedOptionIndex(optIndex);
             if (opt?.availabilityAndPricing) {
                 currency = opt.availabilityAndPricing.currency || currency;
                 
+                const { total, computedTierCountsObj, totalQty } = calculateTotalAndTiers(opt, participantCounts);
+                totalAmount = total;
+                totalSlots = totalQty;
+
                 if (opt.availabilityAndPricing.pricingTiers?.length > 0) {
-                    const adultTier = opt.availabilityAndPricing.pricingTiers.find(t => t.title.toLowerCase() === 'adult');
-                    basePrice = adultTier ? adultTier.price : opt.availabilityAndPricing.pricingTiers[0].price;
-                    opt.availabilityAndPricing.pricingTiers.forEach((tier, index) => {
-                        const qty = tierQuantities[index] || 0;
+                    Object.entries(computedTierCountsObj).forEach(([idx, qty]) => {
                         if (qty > 0) {
-                            totalAmount += tier.price * qty;
-                            totalSlots += qty;
+                            const tier = opt.availabilityAndPricing.pricingTiers[idx];
                             tierSelections.push({
                                 title: tier.title,
                                 price: tier.price,
@@ -167,15 +198,12 @@ const ExperienceDetail = () => {
                         }
                     });
                 } else {
-                    const qty = tierQuantities[0] || 0;
-                    if (qty > 0) {
+                    if (totalQty > 0) {
                         basePrice = opt.availabilityAndPricing.price || 0;
-                        totalAmount += basePrice * qty;
-                        totalSlots += qty;
                         tierSelections.push({
                             title: 'Adult',
                             price: basePrice,
-                            quantity: qty
+                            quantity: totalQty
                         });
                     }
                 }
@@ -185,7 +213,7 @@ const ExperienceDetail = () => {
         navigate('/checkout', {
             state: {
                 amount: totalAmount,
-                experienceTitle: experience.bookingOptions?.length > 0 ? `${experience.title} - ${experience.bookingOptions[selectedOptionIndex].optionSetup?.title}` : experience.title,
+                experienceTitle: experience.bookingOptions?.length > 0 ? `${experience.title} - ${experience.bookingOptions[optIndex].optionSetup?.title}` : experience.title,
                 currency: currency,
                 experienceId: experience._id,
                 date: date,
@@ -196,7 +224,7 @@ const ExperienceDetail = () => {
         });
     };
 
-    const handleAddToCart = async () => {
+    const handleAddToCart = async (optIndex) => {
         if (!user) { navigate('/login', { state: { from: location } }); return; }
         if (!date) { alert('Please select a date first'); return; }
 
@@ -204,23 +232,10 @@ const ExperienceDetail = () => {
         let totalSlots = 0;
         
         if (experience.bookingOptions?.length > 0) {
-            const opt = experience.bookingOptions[selectedOptionIndex];
-            if (opt?.availabilityAndPricing?.pricingTiers?.length > 0) {
-                opt.availabilityAndPricing.pricingTiers.forEach((tier, index) => {
-                    const qty = tierQuantities[index] || 0;
-                    if (qty > 0) {
-                        totalAmount += tier.price * qty;
-                        totalSlots += qty;
-                    }
-                });
-            } else {
-                const qty = tierQuantities[0] || 0;
-                if (qty > 0) {
-                    const basePrice = opt?.availabilityAndPricing?.price || 0;
-                    totalAmount += basePrice * qty;
-                    totalSlots += qty;
-                }
-            }
+            const opt = experience.bookingOptions[optIndex];
+            const { total, totalQty } = calculateTotalAndTiers(opt, participantCounts);
+            totalAmount = total;
+            totalSlots = totalQty;
         }
 
         if (totalSlots === 0) {
@@ -240,6 +255,7 @@ const ExperienceDetail = () => {
         if (result.success) {
             setCartMsg('Added to cart!');
             setTimeout(() => setCartMsg(''), 3000);
+            handleNavigateToCheckout(optIndex);
         } else {
             alert(result.error);
         }
@@ -479,96 +495,94 @@ const ExperienceDetail = () => {
                     </section>
 
                     {/* Booking Options Section */}
-                    {experience.bookingOptions?.length > 0 && (
+                    {experience.bookingOptions?.length > 0 && isAvailabilityChecked && (
                         <section className="pt-8 border-t border-gray-100" id="booking-options">
                             <h2 className="text-2xl font-bold text-gray-900 mb-6">Select an option</h2>
-                            <div className="space-y-4">
+                            <div className="flex overflow-x-auto pb-6 gap-4 custom-scrollbar">
                                 {experience.bookingOptions.map((opt, index) => {
-                                    const isSelected = selectedOptionIndex === index;
+                                    const { total } = calculateTotalAndTiers(opt, participantCounts);
                                     const pricing = opt.availabilityAndPricing;
+                                    const isSelected = selectedOptionIndex === index;
                                     return (
                                         <div 
-                                            key={index} 
-                                            onClick={() => setSelectedOptionIndex(index)}
-                                            className={`border-2 rounded-2xl p-5 cursor-pointer transition-all ${isSelected ? 'border-primary bg-blue-50/30' : 'border-gray-200 hover:border-gray-300 bg-white'}`}
+                                            key={index}
+                                            onClick={() => setSelectedOptionIndex(index)} 
+                                            className={`min-w-[320px] max-w-[320px] cursor-pointer flex-shrink-0 border rounded-2xl p-5 bg-white flex flex-col transition-all ${isSelected ? 'border-blue-600 shadow-md ring-1 ring-blue-600' : 'border-gray-200 shadow-sm hover:border-gray-400'}`}
                                         >
-                                            <div className="flex justify-between items-start mb-2">
-                                                <div className="flex items-center gap-3">
-                                                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${isSelected ? 'border-primary' : 'border-gray-300'}`}>
-                                                        {isSelected && <div className="w-2.5 h-2.5 bg-primary rounded-full"></div>}
-                                                    </div>
-                                                    <h3 className="font-bold text-gray-900 text-lg">{opt.optionSetup?.title}</h3>
-                                                </div>
-                                                <div className="text-right">
-                                                    {(() => {
-                                                        const displayPrice = pricing?.pricingTiers?.length > 0 ? pricing.pricingTiers[0].price : (pricing?.price || 0);
-                                                        return (
-                                                            <>
-                                                                <span className="text-xs text-gray-500 line-through mr-2">
-                                                                    {pricing?.currency || experience.currency || '$'} {Math.round(displayPrice * 1.2)}
-                                                                </span>
-                                                                <span className="font-bold text-lg text-gray-900">
-                                                                    {pricing?.currency || experience.currency || '$'} {displayPrice}
-                                                                </span>
-                                                                <div className="text-xs text-gray-500">
-                                                                    {pricing?.pricingPersonDependency === 'category' ? 'from' : 'per person'}
-                                                                </div>
-                                                            </>
-                                                        );
-                                                    })()}
-                                                </div>
-                                            </div>
-                                            <p className="text-sm text-gray-600 mb-4 ml-8">{opt.optionSetup?.description}</p>
+                                            <h3 className="font-bold text-gray-900 text-lg mb-2 line-clamp-2">{opt.optionSetup?.title}</h3>
+                                            <p className="text-sm text-gray-600 mb-4 line-clamp-3 flex-grow">{opt.optionSetup?.description}</p>
                                             
-                                            {isSelected && (
-                                                <div className="ml-8 mt-4 pt-4 border-t border-gray-200 grid grid-cols-1 md:grid-cols-2 gap-4 animate-fade-in-up">
-                                                    <div>
-                                                        <h4 className="font-bold text-sm text-gray-800 flex items-center gap-2 mb-2"><FaClock className="text-primary" /> Details</h4>
-                                                        <ul className="text-sm text-gray-600 space-y-1">
-                                                            <li><span className="font-medium">Group type:</span> {opt.optionSetup?.isPrivateActivity ? 'Private' : 'Shared'}</li>
-                                                            {opt.optionSetup?.maxGroupSize && <li><span className="font-medium">Max group:</span> {opt.optionSetup.maxGroupSize}</li>}
-                                                            {opt.optionSetup?.languages?.length > 0 && <li><span className="font-medium">Guide:</span> {opt.optionSetup.languages.join(', ')}</li>}
-                                                            {pricing?.capacity && <li><span className="font-medium">Capacity:</span> {pricing.capacity}</li>}
-                                                        </ul>
-                                                        
-                                                        {pricing?.pricingTiers?.length > 0 && (
-                                                            <>
-                                                                <h4 className="font-bold text-sm text-gray-800 flex items-center gap-2 mb-2 mt-4"><FaTag className="text-primary" /> Pricing Tiers</h4>
-                                                                <ul className="text-sm text-gray-600 space-y-1">
-                                                                    {pricing.pricingTiers.map((tier, idx) => (
-                                                                        <li key={idx} className="flex justify-between w-full max-w-[200px] bg-gray-50 px-2 py-1 rounded">
-                                                                            <span className="font-medium">{tier.title} <span className="text-xs text-gray-400">({tier.minAge}-{tier.maxAge} yrs)</span></span>
-                                                                            <span className="font-bold text-gray-900">{pricing.currency || experience.currency || '$'} {tier.price}</span>
-                                                                        </li>
-                                                                    ))}
-                                                                </ul>
-                                                            </>
-                                                        )}
+                                            <div className="flex justify-between items-end mt-auto pt-4 border-t border-gray-100">
+                                                <div>
+                                                    <div className="text-xs text-gray-500 font-medium">Total price</div>
+                                                    <div className="font-extrabold text-xl text-[#1a2b49]">
+                                                        {pricing?.currency || experience.currency || '$'}{total}
                                                     </div>
-                                                    <div>
-                                                        <h4 className="font-bold text-sm text-gray-800 flex items-center gap-2 mb-2"><FaMapMarkerAlt className="text-primary" /> Meeting & Pickup</h4>
-                                                        <ul className="text-sm text-gray-600 space-y-1">
-                                                            <li><span className="font-medium text-xs uppercase bg-gray-200 px-1.5 py-0.5 rounded">{opt.meetingPointOrPickup?.meetingType}</span></li>
-                                                            {opt.meetingPointOrPickup?.meetingAddress && <li><span className="font-medium">Address:</span> {opt.meetingPointOrPickup.meetingAddress}</li>}
-                                                            {opt.meetingPointOrPickup?.pickupType && <li><span className="font-medium">Pickup:</span> {opt.meetingPointOrPickup.pickupType}</li>}
-                                                            {opt.meetingPointOrPickup?.arrivalTime && <li><span className="font-medium">Arrive:</span> {opt.meetingPointOrPickup.arrivalTime}</li>}
-                                                        </ul>
-                                                    </div>
-                                                    {opt.cutOff && (
-                                                        <div className="md:col-span-2">
-                                                            <h4 className="font-bold text-sm text-gray-800 flex items-center gap-2 mb-2"><FaCheck className="text-primary" /> Policies</h4>
-                                                            <ul className="text-sm text-gray-600 space-y-1">
-                                                                <li><span className="font-medium">Cancellation:</span> {opt.cutOff.cancellationPolicy.replace(/_/g, ' ').toUpperCase()}</li>
-                                                                <li><span className="font-medium">Cut-off:</span> {opt.cutOff.cutoffHours} hours before</li>
-                                                            </ul>
-                                                        </div>
-                                                    )}
                                                 </div>
-                                            )}
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); handleAddToCart(index); }}
+                                                    className="bg-[#002b5c] hover:bg-[#001f42] text-white font-bold py-2.5 px-6 rounded-full transition-colors flex items-center justify-center whitespace-nowrap"
+                                                >
+                                                    Continue
+                                                </button>
+                                            </div>
                                         </div>
                                     );
                                 })}
                             </div>
+
+                            {/* Details for Selected Option */}
+                            {experience.bookingOptions[selectedOptionIndex] && (
+                                <div className="mt-6 bg-gray-50 rounded-2xl p-6 border border-gray-100 animate-fade-in-up">
+                                    <h3 className="font-bold text-lg text-gray-900 mb-4">
+                                        Option Details: <span className="font-medium text-gray-700">{experience.bookingOptions[selectedOptionIndex].optionSetup?.title}</span>
+                                    </h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div>
+                                            <h4 className="font-bold text-sm text-gray-800 flex items-center gap-2 mb-3"><FaClock className="text-primary" /> General Info</h4>
+                                            <ul className="text-sm text-gray-600 space-y-2">
+                                                <li><span className="font-medium text-gray-900">Group type:</span> {experience.bookingOptions[selectedOptionIndex].optionSetup?.isPrivateActivity ? 'Private' : 'Shared'}</li>
+                                                {experience.bookingOptions[selectedOptionIndex].optionSetup?.maxGroupSize && <li><span className="font-medium text-gray-900">Max group:</span> {experience.bookingOptions[selectedOptionIndex].optionSetup.maxGroupSize}</li>}
+                                                {experience.bookingOptions[selectedOptionIndex].optionSetup?.languages?.length > 0 && <li><span className="font-medium text-gray-900">Guide:</span> {experience.bookingOptions[selectedOptionIndex].optionSetup.languages.join(', ')}</li>}
+                                                {experience.bookingOptions[selectedOptionIndex].availabilityAndPricing?.capacity && <li><span className="font-medium text-gray-900">Capacity:</span> {experience.bookingOptions[selectedOptionIndex].availabilityAndPricing.capacity}</li>}
+                                            </ul>
+                                            
+                                            {experience.bookingOptions[selectedOptionIndex].availabilityAndPricing?.pricingTiers?.length > 0 && (
+                                                <>
+                                                    <h4 className="font-bold text-sm text-gray-800 flex items-center gap-2 mb-3 mt-6"><FaTag className="text-primary" /> Pricing Tiers</h4>
+                                                    <ul className="text-sm text-gray-600 space-y-2">
+                                                        {experience.bookingOptions[selectedOptionIndex].availabilityAndPricing.pricingTiers.map((tier, idx) => (
+                                                            <li key={idx} className="flex justify-between w-full max-w-[240px] bg-white border border-gray-200 px-3 py-2 rounded-lg">
+                                                                <span className="font-medium">{tier.title} <span className="text-xs text-gray-400">({tier.minAge}-{tier.maxAge} yrs)</span></span>
+                                                                <span className="font-bold text-gray-900">{experience.bookingOptions[selectedOptionIndex].availabilityAndPricing.currency || experience.currency || '$'} {tier.price}</span>
+                                                            </li>
+                                                        ))}
+                                                    </ul>
+                                                </>
+                                            )}
+                                        </div>
+                                        <div>
+                                            <h4 className="font-bold text-sm text-gray-800 flex items-center gap-2 mb-3"><FaMapMarkerAlt className="text-primary" /> Meeting & Pickup</h4>
+                                            <ul className="text-sm text-gray-600 space-y-2">
+                                                <li><span className="font-medium text-xs uppercase bg-gray-200 text-gray-800 px-2 py-1 rounded-md">{experience.bookingOptions[selectedOptionIndex].meetingPointOrPickup?.meetingType || 'MEET AT LOCATION'}</span></li>
+                                                {experience.bookingOptions[selectedOptionIndex].meetingPointOrPickup?.meetingAddress && <li><span className="font-medium text-gray-900">Address:</span> {experience.bookingOptions[selectedOptionIndex].meetingPointOrPickup.meetingAddress}</li>}
+                                                {experience.bookingOptions[selectedOptionIndex].meetingPointOrPickup?.pickupType && <li><span className="font-medium text-gray-900">Pickup:</span> {experience.bookingOptions[selectedOptionIndex].meetingPointOrPickup.pickupType}</li>}
+                                                {experience.bookingOptions[selectedOptionIndex].meetingPointOrPickup?.arrivalTime && <li><span className="font-medium text-gray-900">Arrive:</span> {experience.bookingOptions[selectedOptionIndex].meetingPointOrPickup.arrivalTime}</li>}
+                                            </ul>
+
+                                            {experience.bookingOptions[selectedOptionIndex].cutOff && (
+                                                <div className="mt-6">
+                                                    <h4 className="font-bold text-sm text-gray-800 flex items-center gap-2 mb-3"><FaCheck className="text-primary" /> Policies</h4>
+                                                    <ul className="text-sm text-gray-600 space-y-2">
+                                                        <li><span className="font-medium text-gray-900">Cancellation:</span> {experience.bookingOptions[selectedOptionIndex].cutOff.cancellationPolicy.replace(/_/g, ' ').toUpperCase()}</li>
+                                                        <li><span className="font-medium text-gray-900">Cut-off:</span> {experience.bookingOptions[selectedOptionIndex].cutOff.cutoffHours} hours before</li>
+                                                    </ul>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </section>
                     )}
 
@@ -730,102 +744,39 @@ const ExperienceDetail = () => {
                 <div className="relative">
                     <div className="sticky top-32 max-h-[calc(100vh-120px)] overflow-y-auto hide-scrollbar bg-white border border-gray-200 rounded-2xl p-6">
                         {/* Price Details */}
-                        {(() => {
-                            let currency = currencySymbol;
-                            let selectedTitle = '';
-                            let totalAmount = 0;
-                            let pricingTiers = [];
-                            let basePrice = 0;
-
-                            if (experience.bookingOptions?.length > 0) {
-                                const opt = experience.bookingOptions[selectedOptionIndex];
-                                if (opt?.availabilityAndPricing) {
-                                    currency = opt.availabilityAndPricing.currency || currency;
-                                    if (opt.availabilityAndPricing.pricingTiers?.length > 0) {
-                                        pricingTiers = opt.availabilityAndPricing.pricingTiers;
-                                        const adultTier = pricingTiers.find(t => t.title.toLowerCase() === 'adult');
-                                        basePrice = adultTier ? adultTier.price : pricingTiers[0].price;
-                                        pricingTiers.forEach((tier, index) => {
-                                            const qty = tierQuantities[index] || 0;
-                                            totalAmount += tier.price * qty;
-                                        });
-                                    } else {
-                                        basePrice = opt.availabilityAndPricing.price || 0;
-                                        pricingTiers = [{ title: 'Adult', price: basePrice }];
-                                        totalAmount = basePrice * (tierQuantities[0] || 0);
-                                    }
-                                }
-                                selectedTitle = opt?.optionSetup?.title;
-                            }
-
-                            return (
-                                <div className="mb-6 flex flex-col">
-                                    {selectedTitle && (
-                                        <div className="mb-2 text-sm font-bold text-blue-600 bg-blue-50 p-2 rounded">
-                                            Selected: {selectedTitle}
-                                        </div>
-                                    )}
-                                    <div className="flex items-center gap-2 text-sm text-gray-500 line-through decoration-gray-400">
-                                        <span>From</span>
-                                        <span>{currency}{Math.round(basePrice * 1.2)}</span>
-                                    </div>
-                                    <div className="flex items-baseline gap-2">
-                                        <span className="text-3xl font-bold text-red-600">
-                                            {currency}{basePrice}
-                                        </span>
-                                        <span className="text-sm font-medium text-gray-700">base price</span>
-                                    </div>
-                                    {totalAmount > 0 && (
-                                        <div className="mt-3 text-lg font-bold text-gray-800 border-t pt-3 border-gray-100">
-                                            Total: {currency}{totalAmount}
-                                        </div>
-                                    )}
-                                </div>
-                            );
-                        })()}
+                        <div className="mb-6">
+                            <div className="flex items-baseline gap-2">
+                                <span className="text-3xl font-extrabold text-gray-900">
+                                    {currencySymbol}
+                                    {experience.bookingOptions?.[0]?.availabilityAndPricing?.pricingTiers?.find(t => t.title.toLowerCase().includes('adult'))?.price 
+                                     || experience.bookingOptions?.[0]?.availabilityAndPricing?.pricingTiers?.[0]?.price 
+                                     || experience.bookingOptions?.[0]?.availabilityAndPricing?.price || experience.price || 0}
+                                </span>
+                            </div>
+                            <p className="text-sm text-gray-500 font-medium mt-1">per person</p>
+                        </div>
 
                         {/* Booking Selectors */}
                         <div className="space-y-4 mb-8">
                             {/* Participants */}
-                            <div className="flex flex-col gap-3">
-                                {(() => {
-                                    let tiersToRender = [];
-                                    if (experience.bookingOptions?.length > 0) {
-                                        const opt = experience.bookingOptions[selectedOptionIndex];
-                                        if (opt?.availabilityAndPricing?.pricingTiers?.length > 0) {
-                                            tiersToRender = opt.availabilityAndPricing.pricingTiers;
-                                        } else {
-                                            tiersToRender = [{ title: 'Adult' }];
-                                        }
-                                    } else {
-                                        tiersToRender = [{ title: 'Adult' }];
-                                    }
-
-                                    return tiersToRender.map((tier, index) => {
-                                        const qty = tierQuantities[index] || 0;
-                                        return (
-                                            <div key={index} className="relative border border-gray-300 rounded-full hover:border-gray-500 hover:shadow-sm transition-all focus-within:border-blue-600 focus-within:ring-1 focus-within:ring-blue-600">
-                                                <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none text-gray-500">
-                                                    <FaUserFriends size={16} />
-                                                </div>
-                                                <div className="flex items-center justify-between w-full p-2 pl-12">
-                                                    <span className="font-medium text-gray-700 text-sm">{tier.title} x {qty}</span>
-                                                    <div className="flex items-center gap-2">
-                                                        <button 
-                                                            onClick={() => setTierQuantities(prev => ({ ...prev, [index]: Math.max(0, (prev[index] || 0) - 1) }))} 
-                                                            className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 hover:bg-gray-200 font-bold"
-                                                        >-</button>
-                                                        <button 
-                                                            onClick={() => setTierQuantities(prev => ({ ...prev, [index]: (prev[index] || 0) + 1 }))} 
-                                                            className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 hover:bg-gray-200 font-bold"
-                                                        >+</button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        );
-                                    });
-                                })()}
-                            </div>
+                            <button
+                                onClick={() => setShowTicketModal(true)}
+                                className="w-full flex items-center justify-between bg-white border border-gray-300 rounded-full px-4 py-3.5 hover:border-gray-500 hover:shadow-sm transition-all focus:border-blue-600 focus:ring-1 focus:ring-blue-600 text-left"
+                            >
+                                <div className="flex items-center gap-3 text-gray-700">
+                                    <FaUserFriends size={16} className="text-gray-500" />
+                                    <span className="font-medium text-sm">
+                                        {(() => {
+                                            const parts = [];
+                                            Object.entries(participantCounts).forEach(([type, count]) => {
+                                                if (count > 0) parts.push(`${type.split(' ')[0]} x ${count}`);
+                                            });
+                                            return parts.length > 0 ? parts.join(', ') : 'Select participants';
+                                        })()}
+                                    </span>
+                                </div>
+                                <FaChevronDown size={12} className="text-gray-400" />
+                            </button>
 
                             {/* Select Date */}
                             <div className="relative border border-gray-300 rounded-full hover:border-gray-500 hover:shadow-sm transition-all focus-within:border-blue-600 focus-within:ring-1 focus-within:ring-blue-600">
@@ -834,65 +785,51 @@ const ExperienceDetail = () => {
                                 </div>
                                 <input
                                     type="date"
-                                    className="w-full bg-transparent p-3 pl-12 pr-4 rounded-full font-medium text-gray-700 outline-none cursor-pointer text-sm"
+                                    min={new Date().toISOString().split('T')[0]}
                                     value={date}
                                     onChange={(e) => setDate(e.target.value)}
+                                    className="w-full bg-transparent p-3 pl-12 pr-4 rounded-full font-medium text-gray-700 outline-none cursor-pointer text-sm appearance-none"
+                                    required
                                 />
                             </div>
-
-                            {/* Select Time (Attractive Pills) */}
+                            
+                            {/* Select Time */}
                             {experience.timeSlots?.length > 0 && (
-                                <div className="space-y-3 pt-2">
-                                    <h4 className="font-semibold text-gray-700 text-sm flex items-center gap-2">
-                                        <FaClock className="text-gray-400" /> Starting time
-                                    </h4>
-                                    <div className="flex flex-wrap gap-2">
+                                <div className="relative border border-gray-300 rounded-full hover:border-gray-500 hover:shadow-sm transition-all focus-within:border-blue-600 focus-within:ring-1 focus-within:ring-blue-600">
+                                    <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none text-gray-500">
+                                        <FaClock size={16} />
+                                    </div>
+                                    <select
+                                        value={timeSlot}
+                                        onChange={(e) => setTimeSlot(e.target.value)}
+                                        className="w-full bg-transparent text-sm font-medium text-gray-700 py-3.5 pl-12 pr-4 rounded-full outline-none focus:ring-0 appearance-none"
+                                    >
+                                        <option value="" disabled>Select start time</option>
                                         {experience.timeSlots.map((slot, index) => (
-                                            <button
-                                                key={index}
-                                                onClick={() => setTimeSlot(slot)}
-                                                className={`px-4 py-2 font-medium text-sm rounded-lg border transition-all duration-200 ${timeSlot === slot
-                                                    ? 'bg-[#0071eb] border-[#0071eb] text-white shadow-md transform scale-[1.03]'
-                                                    : 'bg-white border-gray-300 text-gray-700 hover:border-[#0071eb] hover:text-[#0071eb] hover:bg-blue-50'
-                                                    }`}
-                                            >
-                                                {slot}
-                                            </button>
+                                            <option key={index} value={slot}>{slot}</option>
                                         ))}
+                                    </select>
+                                    <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none text-gray-400">
+                                        <FaChevronDown size={12} />
                                     </div>
                                 </div>
                             )}
-
-
                         </div>
 
                         {/* CTA Buttons */}
                         <button
-                            onClick={NavigateToCheckout}
-                            disabled={!date || (experience.timeSlots?.length > 0 && !timeSlot)}
-                            className={`w-full font-bold py-3.5 px-6 rounded-full transition-all flex items-center justify-center gap-2 mt-2 ${(date && (!experience.timeSlots?.length || timeSlot))
-                                ? 'bg-[#0071eb] hover:bg-[#005cbf] text-white shadow-md active:scale-95'
-                                : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                                }`}
+                            onClick={() => {
+                                if (!date) { alert('Please select a date'); return; }
+                                if (experience.timeSlots?.length > 0 && !timeSlot) { alert('Please select a start time'); return; }
+                                setIsAvailabilityChecked(true);
+                                setTimeout(() => {
+                                    document.getElementById('booking-options')?.scrollIntoView({ behavior: 'smooth' });
+                                }, 100);
+                            }}
+                            className="w-full bg-[#0071eb] hover:bg-blue-600 text-white font-bold py-4 rounded-full transition-colors flex items-center justify-center"
                         >
                             Check availability
                         </button>
-
-                        {/* Add to Cart button */}
-                        <button
-                            onClick={handleAddToCart}
-                            disabled={!date || cartLoading}
-                            className={`w-full font-bold py-3.5 px-6 rounded-full border-2 transition-all flex items-center justify-center gap-2 mt-2 ${date
-                                ? 'border-[#0071eb] text-[#0071eb] hover:bg-[#0071eb] hover:text-white active:scale-95'
-                                : 'border-gray-200 text-gray-300 cursor-not-allowed'
-                                }`}
-                        >
-                            <FaShoppingCart />
-                            {cartLoading ? 'Adding...' : 'Add to Cart'}
-                        </button>
-                        {cartMsg && (
-                            <p className="text-green-600 text-sm text-center font-semibold animate-pulse">{cartMsg}</p>
-                        )}
 
                         {/* Policies */}
                         <div className="mt-8 space-y-4">
@@ -918,7 +855,52 @@ const ExperienceDetail = () => {
                     </div>
                 </div>
             </div>
-        </div >
+
+            {/* Ticket Selection Modal */}
+            {showTicketModal && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                    <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
+                        <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-white sticky top-0 z-10">
+                            <h3 className="font-bold text-lg text-gray-900">Select Participants</h3>
+                            <button onClick={() => setShowTicketModal(false)} className="p-2 bg-gray-100 rounded-full hover:bg-gray-200">
+                                <FaTimes className="text-gray-500" />
+                            </button>
+                        </div>
+                        
+                        <div className="p-4 overflow-y-auto space-y-4">
+                            {Object.entries(participantCounts).map(([type, count]) => (
+                                <div key={type} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+                                    <div>
+                                        <div className="font-bold text-gray-900">{type}</div>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <button 
+                                            onClick={() => setParticipantCounts(prev => ({ ...prev, [type]: Math.max(0, count - 1) }))}
+                                            disabled={count <= 0}
+                                            className={`w-9 h-9 rounded-full flex items-center justify-center border font-bold text-lg transition-colors ${count <= 0 ? 'border-gray-200 text-gray-300 bg-gray-50' : 'border-[#002b5c] text-[#002b5c] hover:bg-[#002b5c]/5'}`}
+                                        >-</button>
+                                        <span className="w-4 text-center font-bold text-gray-900">{count}</span>
+                                        <button 
+                                            onClick={() => setParticipantCounts(prev => ({ ...prev, [type]: count + 1 }))}
+                                            className="w-9 h-9 rounded-full flex items-center justify-center border border-[#002b5c] text-[#002b5c] font-bold text-lg hover:bg-[#002b5c]/5 transition-colors"
+                                        >+</button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        <div className="p-4 border-t border-gray-100 bg-white sticky bottom-0">
+                            <button 
+                                onClick={() => setShowTicketModal(false)}
+                                className="w-full bg-[#002b5c] hover:bg-[#001d3d] text-white font-bold py-3.5 rounded-full transition-colors"
+                            >
+                                Apply
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
     );
 };
 

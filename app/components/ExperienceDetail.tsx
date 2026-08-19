@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import React, { useState, useEffect, useRef } from "react";
 import { Dimensions, Image, Modal, ScrollView, Text, TouchableOpacity, View, Alert, Platform, Linking, ActivityIndicator, Share } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -74,18 +75,25 @@ interface Props {
 
 export default function ExperienceDetail({ visible, experience, onClose }: Props) {
     const insets = useSafeAreaInsets();
+    const router = useRouter();
     const scrollViewRef = useRef<ScrollView>(null);
     const [bookingWidgetY, setBookingWidgetY] = useState(0);
     const [buttonY, setButtonY] = useState(0);
     const [isStickyVisible, setIsStickyVisible] = useState(true);
     const [selectedDate, setSelectedDate] = useState<string | null>(null);
     const [selectedTime, setSelectedTime] = useState<string | null>(null);
+    const [participantCounts, setParticipantCounts] = useState<{ [key: string]: number }>({
+        'Adult': 1, 'Infant': 0, 'Child': 0, 'Youth': 0, 'Senior': 0,
+        'Student (with ID)': 0, 'Student EU Citizens (with ID)': 0, 
+        'Military (with ID)': 0, 'EU Citizens (with ID)': 0
+    });
     const [adultCount, setAdultCount] = useState(1);
     const [childCount, setChildCount] = useState(0);
     const [tierCounts, setTierCounts] = useState<{ [key: number]: number }>({ 0: 1, 1: 0, 2: 0, 3: 0, 4: 0 });
     const [isBookingFlowVisible, setIsBookingFlowVisible] = useState(false);
+    const [isTicketModalVisible, setIsTicketModalVisible] = useState(false);
     const [isDateModalVisible, setIsDateModalVisible] = useState(false);
-    const [isLanguageModalVisible, setIsLanguageModalVisible] = useState(false);
+    const [isAvailabilityChecked, setIsAvailabilityChecked] = useState(false);
     const [isInWishlist, setIsInWishlist] = useState(false);
     const [wishlistLoading, setWishlistLoading] = useState(false);
     const [reviews, setReviews] = useState<any[]>([]);
@@ -94,6 +102,7 @@ export default function ExperienceDetail({ visible, experience, onClose }: Props
     const [fullExperience, setFullExperience] = useState<any>(null);
     const [loadingDetails, setLoadingDetails] = useState(false);
     const [activeSection, setActiveSection] = useState<string | null>(null);
+    const [selectedOptionIndex, setSelectedOptionIndex] = useState(0);
 
     // Normalize ID
     const experienceId = experience ? (experience.id || experience._id || '') : '';
@@ -104,6 +113,7 @@ export default function ExperienceDetail({ visible, experience, onClose }: Props
             setAdultCount(1);
             setChildCount(0);
             setTierCounts({ 0: 1, 1: 0, 2: 0, 3: 0, 4: 0 });
+            setIsAvailabilityChecked(false);
             checkWishlistStatus();
 
             // Fetch full experience details
@@ -227,25 +237,51 @@ export default function ExperienceDetail({ visible, experience, onClose }: Props
 
     const [addingToCart, setAddingToCart] = useState(false);
 
-    const getDynamicTiers = () => {
-        let tiersToRender = [];
-        if (displayExp?.bookingOptions?.length > 0) {
-            const opt = displayExp.bookingOptions[0];
-            if (opt?.availabilityAndPricing?.pricingTiers?.length > 0) {
-                tiersToRender = opt.availabilityAndPricing.pricingTiers;
-            } else {
-                tiersToRender = [{ title: 'Adult', price: opt?.availabilityAndPricing?.price || getAdultPrice(displayExp) }];
-            }
-        } else {
-            tiersToRender = [{ title: 'Adult (Age 13+)', price: getAdultPrice(displayExp) }];
-            if (getChildPrice(displayExp) > 0) {
-                tiersToRender.push({ title: 'Child', price: getChildPrice(displayExp) });
-            }
+    const calculateTotalAndTiers = (opt: any, pCounts: { [key: string]: number }) => {
+        let total = 0;
+        const tiers = opt?.availabilityAndPricing?.pricingTiers || [];
+        const basePrice = opt?.availabilityAndPricing?.price || getAdultPrice(displayExp);
+        let computedTierCounts: { [key: number]: number } = {};
+        let totalQty = 0;
+        let cAdultCount = 0;
+        let cChildCount = 0;
+
+        if (tiers.length === 0) {
+            Object.entries(pCounts).forEach(([type, count]) => {
+                totalQty += count;
+                if (type === 'Child' || type === 'Infant') cChildCount += count;
+                else cAdultCount += count;
+            });
+            total = totalQty * basePrice;
+            computedTierCounts[0] = totalQty;
+            return { total, computedTierCounts, totalQty, cAdultCount, cChildCount };
         }
-        return tiersToRender;
+
+        Object.entries(pCounts).forEach(([type, count]) => {
+            if (count > 0) {
+                totalQty += count;
+                if (type === 'Child' || type === 'Infant') cChildCount += count;
+                else cAdultCount += count;
+                
+                let matchIdx = tiers.findIndex((t: any) => t.title?.toLowerCase()?.includes(type.toLowerCase()));
+                if (matchIdx === -1 && type === 'Adult') matchIdx = tiers.findIndex((t: any) => t.title?.toLowerCase()?.includes('adult'));
+                if (matchIdx === -1 && type === 'Child') matchIdx = tiers.findIndex((t: any) => t.title?.toLowerCase()?.includes('child'));
+                if (matchIdx === -1 && type === 'Infant') matchIdx = tiers.findIndex((t: any) => t.title?.toLowerCase()?.includes('infant'));
+                
+                if (matchIdx === -1) {
+                    matchIdx = tiers.findIndex((t: any) => t.title?.toLowerCase()?.includes('adult'));
+                    if (matchIdx === -1) matchIdx = 0;
+                }
+
+                computedTierCounts[matchIdx] = (computedTierCounts[matchIdx] || 0) + count;
+                total += count * (tiers[matchIdx]?.price || 0);
+            }
+        });
+
+        return { total, computedTierCounts, totalQty, cAdultCount, cChildCount };
     };
 
-    const addToCart = async () => {
+    const addToCart = async (optIndex: number) => {
         if (!selectedDate) {
             Alert.alert("Select Date", "Please select a date before adding to cart.");
             return;
@@ -264,24 +300,21 @@ export default function ExperienceDetail({ visible, experience, onClose }: Props
             }
             const { token } = JSON.parse(userInfo);
 
-            let totalAmount = 0;
-            let totalQuantity = 0;
-            const tiers = getDynamicTiers();
-            tiers.forEach((tier: any, index: number) => {
-                const isAdultTier = tier.title.toLowerCase().includes('adult') || (index === 0 && !tiers.some((t: any) => t.title.toLowerCase().includes('adult')));
-                const isChildTier = tier.title.toLowerCase().includes('child') || (index === 1 && !tiers.some((t: any) => t.title.toLowerCase().includes('child')));
-                const qty = tierCounts[index] !== undefined ? tierCounts[index] : (isAdultTier ? adultCount : (isChildTier ? childCount : 0));
-                totalQuantity += qty;
-                totalAmount += (tier.price * qty);
-            });
+            const opt = displayExp?.bookingOptions?.[optIndex];
+            const { computedTierCounts, cAdultCount, cChildCount, totalQty, total } = calculateTotalAndTiers(opt || {}, participantCounts);
 
-            if (totalQuantity === 0) {
+            setSelectedOptionIndex(optIndex);
+            setTierCounts(computedTierCounts);
+            setAdultCount(cAdultCount);
+            setChildCount(cChildCount);
+
+            if (totalQty === 0) {
                 setAddingToCart(false);
-                Alert.alert("Select Participants", "Please select at least one participant before adding to cart.");
+                Alert.alert("Select Participants", "Please select at least one participant.");
                 return;
             }
 
-            const avgPrice = totalQuantity > 0 ? totalAmount / totalQuantity : 0;
+            const avgPrice = totalQty > 0 ? total / totalQty : 0;
 
             const response = await fetch(`${API_URL}/cart`, {
                 method: 'POST',
@@ -291,7 +324,7 @@ export default function ExperienceDetail({ visible, experience, onClose }: Props
                 },
                 body: JSON.stringify({
                     experienceId: experienceId,
-                    quantity: totalQuantity,
+                    quantity: totalQty,
                     date: selectedDate,
                     timeSlot: selectedTime || '',
                     priceAtAdd: avgPrice
@@ -300,11 +333,9 @@ export default function ExperienceDetail({ visible, experience, onClose }: Props
 
             const data = await response.json();
             if (response.ok) {
-                Alert.alert(
-                    '✅ Added to Cart',
-                    `${displayExp?.title} has been added to your cart.`,
-                    [{ text: 'OK' }]
-                );
+                setIsTicketModalVisible(false);
+                // Trigger the booking flow (payment screen) immediately after adding to cart
+                setIsBookingFlowVisible(true);
             } else {
                 Alert.alert('Error', data.message || 'Failed to add to cart. Please try again.');
             }
@@ -769,165 +800,208 @@ export default function ExperienceDetail({ visible, experience, onClose }: Props
 
                         <View className="h-[1px] bg-gray-200 dark:bg-gray-800 my-6" />
 
+                        <View className="h-[1px] bg-gray-200 dark:bg-gray-800 my-6" />
 
-
-                        {/* DESKTOP-STYLE BOOKING WIDGET ON MOBILE */}
-                        <View 
-                            onLayout={(e) => setBookingWidgetY(e.nativeEvent.layout.y)}
-                            className="bg-white dark:bg-[#1c1c1e] rounded-2xl border border-gray-200 dark:border-gray-800 p-5 shadow-sm mb-8 mt-2"
-                        >
-                            {(() => {
-                                const tiers = getDynamicTiers();
-                                let currentTotalAmount = 0;
-                                tiers.forEach((tier: any, index: number) => {
-                                    const isAdult = tier.title.toLowerCase().includes('adult') || (index === 0 && !tiers.some((t: any) => t.title.toLowerCase().includes('adult')));
-                                    const isChild = tier.title.toLowerCase().includes('child') || (index === 1 && !tiers.some((t: any) => t.title.toLowerCase().includes('child')));
-                                    const count = tierCounts[index] !== undefined ? tierCounts[index] : (isAdult ? adultCount : (isChild ? childCount : 0));
-                                    currentTotalAmount += tier.price * count;
-                                });
-
-                                return (
-                                    <>
-                                        <Text className="text-gray-500 dark:text-gray-400 text-xs tracking-widest font-bold uppercase mb-1">Base Price</Text>
-                                        <View className="flex-row items-baseline gap-1 mb-6">
-                                            <Text className="text-gray-900 dark:text-white font-black text-2xl">{formatPrice(getDisplayPrice(displayExp), displayExp.currency)}</Text>
-                                        </View>
-
-                                        {/* Participants */}
-                                        <View className="border border-gray-300 dark:border-gray-700 rounded-3xl p-1 mb-4 bg-gray-50 dark:bg-[#252527]">
-                                            {tiers.map((tier: any, index: number) => {
-                                                const isAdultTier = tier.title.toLowerCase().includes('adult') || (index === 0 && !tiers.some((t: any) => t.title.toLowerCase().includes('adult')));
-                                                const isChildTier = tier.title.toLowerCase().includes('child') || (index === 1 && !tiers.some((t: any) => t.title.toLowerCase().includes('child')));
-                                                
-                                                const count = tierCounts[index] !== undefined ? tierCounts[index] : (isAdultTier ? adultCount : (isChildTier ? childCount : 0));
-                                                
-                                                const handleSetCount = (newCount: number) => {
-                                                    setTierCounts(prev => ({ ...prev, [index]: newCount }));
-                                                    if (isAdultTier) setAdultCount(newCount);
-                                                    if (isChildTier) setChildCount(newCount);
-                                                };
-                                                const minCount = 0;
-
-                                                return (
-                                                    <React.Fragment key={index}>
-                                                        {index > 0 && <View className="h-[1px] bg-gray-200 dark:bg-gray-700 mx-3 my-1" />}
-                                                        <View className="flex-row items-center justify-between px-3 py-2">
-                                                            <View>
-                                                                <Text className="text-gray-900 dark:text-white font-medium text-base">
-                                                                    {tier.title}
-                                                                    {tier.minAge !== undefined && tier.maxAge !== undefined ? ` (${tier.minAge}-${tier.maxAge} yrs)` : ''}
-                                                                </Text>
-                                                                <Text className="text-gray-500 dark:text-gray-400 text-sm font-medium">
-                                                                    {formatPrice(tier.price?.toString() || "0", displayExp.currency)}
-                                                                </Text>
-                                                            </View>
-                                                            <View className="flex-row items-center">
-                                                                <TouchableOpacity
-                                                                    onPress={() => handleSetCount(Math.max(minCount, count - 1))}
-                                                                    className="w-8 h-8 rounded-full bg-white dark:bg-gray-800 items-center justify-center mr-2 shadow-sm border border-gray-100 dark:border-gray-700"
-                                                                >
-                                                                    <Text className={`${count > minCount ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-600'} font-bold text-lg leading-none`}>-</Text>
-                                                                </TouchableOpacity>
-                                                                <Text className="text-gray-900 dark:text-white font-bold w-6 text-center">{count}</Text>
-                                                                <TouchableOpacity
-                                                                    onPress={() => handleSetCount(count + 1)}
-                                                                    className="w-8 h-8 rounded-full bg-white dark:bg-gray-800 items-center justify-center ml-2 shadow-sm border border-gray-100 dark:border-gray-700"
-                                                                >
-                                                                    <Text className="text-gray-900 dark:text-white font-bold text-lg leading-none">+</Text>
-                                                                </TouchableOpacity>
-                                                            </View>
-                                                        </View>
-                                                    </React.Fragment>
-                                                );
-                                            })}
-                                            
-                                            {currentTotalAmount > 0 && (
-                                                <View className="mt-2 mb-2 pt-3 border-t border-gray-200 dark:border-gray-700 mx-3">
-                                                    <Text className="text-gray-900 dark:text-white font-black text-lg text-right">
-                                                        Total: {formatPrice(currentTotalAmount.toString(), displayExp.currency)}
-                                                    </Text>
-                                                </View>
-                                            )}
-                                        </View>
-                                    </>
-                                );
-                            })()}
+                        {/* SELECTION BOX (DARK BLUE) */}
+                        <View className="bg-[#1a2b49] rounded-2xl p-5 shadow-sm mb-4">
+                            <Text className="text-white font-extrabold text-[17px] mb-4">Select participants, date, and language</Text>
+                            
+                            {/* Participants Placeholder */}
+                            <TouchableOpacity
+                                onPress={() => setIsTicketModalVisible(true)}
+                                className="flex-row items-center justify-between bg-white rounded-full px-4 py-3.5 mb-3"
+                            >
+                                <View className="flex-row items-center">
+                                    <Ionicons name="people-outline" size={20} color="#1a2b49" style={{ marginRight: 12 }} />
+                                    <Text className="text-[#1a2b49] font-bold text-base">
+                                        {(() => {
+                                            let parts = [];
+                                            Object.entries(participantCounts).forEach(([type, count]) => {
+                                                if (count > 0) parts.push(`${type.split(' ')[0]} x ${count}`);
+                                            });
+                                            return parts.length > 0 ? parts.join(', ') : 'Select participants';
+                                        })()}
+                                    </Text>
+                                </View>
+                                <Ionicons name="chevron-down" size={20} color="#1a2b49" />
+                            </TouchableOpacity>
 
                             {/* Date Placeholder */}
                             <TouchableOpacity
                                 onPress={() => setIsDateModalVisible(true)}
-                                className="flex-row items-center justify-between border border-gray-300 dark:border-gray-700 rounded-full px-4 py-3.5 mb-6"
+                                className="flex-row items-center justify-between bg-white rounded-full px-4 py-3.5 mb-3"
                             >
                                 <View className="flex-row items-center">
-                                    <Ionicons name="calendar" size={20} color="#4b5563" className="dark:text-gray-400 mr-3" />
-                                    <Text className="text-gray-600 dark:text-gray-400 font-medium text-base">
+                                    <Ionicons name="calendar-outline" size={20} color="#1a2b49" style={{ marginRight: 12 }} />
+                                    <Text className="text-[#1a2b49] font-bold text-base">
                                         {selectedDate ? selectedDate : "Select a date"}
                                     </Text>
                                 </View>
-                                <Ionicons name="calendar-outline" size={20} color="#111827" className="dark:text-gray-300" />
+                                <Ionicons name="chevron-down" size={20} color="#1a2b49" />
                             </TouchableOpacity>
 
-                            {/* Starting Time Options Mockup */}
-                            <View className="mb-6">
-                                <View className="flex-row items-center mb-3">
-                                    <Ionicons name="time" size={18} color="#9ca3af" className="mr-2" />
-                                    <Text className="text-gray-700 dark:text-gray-300 font-bold text-base">Starting time</Text>
-                                </View>
-                                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                                    {(displayExp.timeSlots && displayExp.timeSlots.length > 0 ? displayExp.timeSlots : []).length > 0 ? (
-                                        displayExp.timeSlots!.map((time: any, idx: number) => (
-                                            <TouchableOpacity
-                                                key={idx}
-                                                onPress={() => setSelectedTime(time)}
-                                                className={`px-6 py-2.5 rounded-xl border mr-3 ${selectedTime === time ? 'border-[#002b5c] dark:border-[#58a6ff] bg-[#002b5c]/5 dark:bg-[#58a6ff]/10' : 'border-gray-300 dark:border-gray-700'}`}
-                                            >
-                                                <Text className={`font-medium ${selectedTime === time ? 'text-[#002b5c] dark:text-[#58a6ff]' : 'text-gray-900 dark:text-white'}`}>{time}</Text>
-                                            </TouchableOpacity>
-                                        ))
-                                    ) : (
-                                        <Text className="text-gray-500 dark:text-gray-400 py-2">No time slots required for this activity.</Text>
-                                    )}
-                                </ScrollView>
-                            </View>
-
-
-
-                            {/* Action Buttons */}
+                            {/* Check Availability Button */}
                             <TouchableOpacity
-                                onLayout={(e) => setButtonY(e.nativeEvent.layout.y)}
                                 onPress={() => {
-                                    if (!selectedDate || (displayExp.timeSlots?.length && !selectedTime)) {
-                                        Alert.alert("Missing Details", "Please select a date and time before checking availability.");
+                                    if (!selectedDate) {
+                                        Alert.alert("Missing Details", "Please select a date before checking availability.");
                                     } else {
-                                        handleBooking();
+                                        setIsAvailabilityChecked(true);
                                     }
                                 }}
-                                className={`w-full py-4 rounded-full items-center mb-3 ${selectedDate && (!displayExp.timeSlots?.length || selectedTime) ? 'bg-[#002b5c] dark:bg-[#58a6ff]' : 'bg-[#f3f4f6] dark:bg-gray-800'}`}
+                                className={`w-full py-3.5 rounded-full items-center mb-1 flex-row justify-center ${selectedDate ? 'bg-white' : 'bg-white/50'}`}
                             >
-                                <Text className={`font-extrabold text-lg ${selectedDate && (!displayExp.timeSlots?.length || selectedTime) ? 'text-white' : 'text-gray-400 dark:text-gray-500'}`}>Check availability</Text>
+                                <Text className={`font-extrabold text-base ${selectedDate ? 'text-[#1a2b49]' : 'text-[#1a2b49]/50'}`}>
+                                    Check availability
+                                </Text>
                             </TouchableOpacity>
-                            <TouchableOpacity
-                                onPress={addToCart}
-                                disabled={!selectedDate || (!!displayExp.timeSlots?.length && !selectedTime) || addingToCart}
-                                className={`w-full bg-white dark:bg-[#1c1c1e] border-2 py-4 rounded-full items-center mb-6 ${selectedDate && (!displayExp.timeSlots?.length || selectedTime) ? 'border-[#002b5c] dark:border-[#58a6ff]' : 'border-gray-200 dark:border-gray-800'}`}
-                            >
-                                <View className="flex-row items-center">
-                                    <Ionicons name="cart" size={20} color={selectedDate && (!displayExp.timeSlots?.length || selectedTime) ? '#002b5c' : '#9ca3af'} className="mr-2" />
-                                    <Text className={`font-extrabold text-lg ${selectedDate && (!displayExp.timeSlots?.length || selectedTime) ? 'text-[#002b5c] dark:text-[#58a6ff]' : 'text-gray-400 dark:text-gray-500'}`}>
-                                        {addingToCart ? 'Adding...' : 'Add to Cart'}
-                                    </Text>
-                                </View>
-                            </TouchableOpacity>
+                        </View>
 
-                            {/* Badges under Booking Actions */}
-                            <View className="flex-row items-start mb-4 px-2">
-                                <Ionicons name="checkmark-circle-outline" size={22} color="#10b981" className="mr-3" />
-                                <View className="flex-1">
-                                    <Text className="text-gray-900 dark:text-white font-extrabold text-base mb-1">Free cancellation</Text>
-                                    <Text className="text-gray-500 dark:text-gray-400 text-sm">Cancel up to 24 hours in advance for a full refund</Text>
+                        {/* INLINE PAYMENT OPTIONS WIDGET */}
+                        {isAvailabilityChecked && (
+                            <View 
+                                onLayout={(e) => setBookingWidgetY(e.nativeEvent.layout.y)}
+                                className="bg-white dark:bg-[#1c1c1e] rounded-2xl border border-gray-200 dark:border-gray-800 p-5 shadow-sm mb-8 mt-2"
+                            >
+                                {/* Starting Time Options */}
+                                {displayExp.timeSlots && displayExp.timeSlots.length > 0 && (
+                                    <View className="mb-6">
+                                        <View className="flex-row items-center mb-3">
+                                            <Ionicons name="time" size={18} color="#9ca3af" className="mr-2" />
+                                            <Text className="text-gray-700 dark:text-gray-300 font-bold text-base">Select starting time</Text>
+                                        </View>
+                                        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                                            {displayExp.timeSlots.map((time: any, idx: number) => (
+                                                <TouchableOpacity
+                                                    key={idx}
+                                                    onPress={() => setSelectedTime(time)}
+                                                    className={`px-6 py-2.5 rounded-xl border mr-3 ${selectedTime === time ? 'border-[#002b5c] dark:border-[#58a6ff] bg-[#002b5c]/5 dark:bg-[#58a6ff]/10' : 'border-gray-300 dark:border-gray-700'}`}
+                                                >
+                                                    <Text className={`font-medium ${selectedTime === time ? 'text-[#002b5c] dark:text-[#58a6ff]' : 'text-gray-900 dark:text-white'}`}>{time}</Text>
+                                                </TouchableOpacity>
+                                            ))}
+                                        </ScrollView>
+                                    </View>
+                                )}
+
+                                <Text className="font-extrabold text-gray-900 dark:text-white text-lg mb-4">Select an Option</Text>
+
+                                {displayExp.bookingOptions && displayExp.bookingOptions.length > 0 ? (
+                                    <>
+                                        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-4">
+                                            {displayExp.bookingOptions.map((opt: any, index: number) => {
+                                                const { total } = calculateTotalAndTiers(opt, participantCounts);
+                                                const pricing = opt.availabilityAndPricing;
+                                                const isSelected = selectedOptionIndex === index;
+                                                
+                                                return (
+                                                    <TouchableOpacity 
+                                                        key={index} 
+                                                        onPress={() => setSelectedOptionIndex(index)}
+                                                        style={{ width: 280, marginRight: 16 }} 
+                                                        className={`border rounded-2xl p-4 bg-white dark:bg-[#252527] shadow-sm ${isSelected ? 'border-[#002b5c] dark:border-[#58a6ff]' : 'border-gray-200 dark:border-gray-800'}`}
+                                                    >
+                                                        <Text className="font-bold text-gray-900 dark:text-white text-lg mb-2" numberOfLines={2}>{opt.optionSetup?.title}</Text>
+                                                        {opt.optionSetup?.description && (
+                                                            <Text className="text-gray-500 dark:text-gray-400 text-sm mb-4" numberOfLines={3}>{opt.optionSetup.description}</Text>
+                                                        )}
+                                                        <View className="flex-row items-center justify-between mt-auto pt-4 border-t border-gray-100 dark:border-gray-800">
+                                                            <View>
+                                                                <Text className="text-gray-500 dark:text-gray-400 text-xs font-medium">Total price</Text>
+                                                                <Text className="text-xl font-extrabold text-[#1a2b49] dark:text-[#58a6ff]">
+                                                                    {formatPrice(total.toString(), pricing?.currency || displayExp.currency)}
+                                                                </Text>
+                                                            </View>
+                                                            <TouchableOpacity
+                                                                onPress={() => addToCart(index)}
+                                                                disabled={addingToCart}
+                                                                className="bg-[#002b5c] dark:bg-[#58a6ff] px-6 py-3 rounded-full"
+                                                            >
+                                                                {addingToCart && selectedOptionIndex === index ? (
+                                                                    <ActivityIndicator color="white" size="small" />
+                                                                ) : (
+                                                                    <Text className="text-white font-bold text-sm">Continue</Text>
+                                                                )}
+                                                            </TouchableOpacity>
+                                                        </View>
+                                                    </TouchableOpacity>
+                                                );
+                                            })}
+                                        </ScrollView>
+
+                                        {/* Details for Selected Option */}
+                                        {displayExp.bookingOptions[selectedOptionIndex] && (
+                                            <View className="bg-gray-50 dark:bg-[#2a2a2c] rounded-2xl p-5 mb-4 border border-gray-100 dark:border-gray-800">
+                                                <Text className="font-bold text-lg text-gray-900 dark:text-white mb-4">
+                                                    Option Details: <Text className="font-medium text-gray-700 dark:text-gray-300">{displayExp.bookingOptions[selectedOptionIndex].optionSetup?.title}</Text>
+                                                </Text>
+                                                
+                                                <View className="mb-4">
+                                                    <View className="flex-row items-center mb-2">
+                                                        <Ionicons name="time-outline" size={16} color="#002b5c" style={{ marginRight: 6 }} />
+                                                        <Text className="font-bold text-sm text-gray-800 dark:text-gray-200">General Info</Text>
+                                                    </View>
+                                                    <Text className="text-sm text-gray-600 dark:text-gray-400 mb-1"><Text className="font-medium text-gray-900 dark:text-white">Group type:</Text> {displayExp.bookingOptions[selectedOptionIndex].optionSetup?.isPrivateActivity ? 'Private' : 'Shared'}</Text>
+                                                    {displayExp.bookingOptions[selectedOptionIndex].optionSetup?.maxGroupSize && <Text className="text-sm text-gray-600 dark:text-gray-400 mb-1"><Text className="font-medium text-gray-900 dark:text-white">Max group:</Text> {displayExp.bookingOptions[selectedOptionIndex].optionSetup.maxGroupSize}</Text>}
+                                                    {displayExp.bookingOptions[selectedOptionIndex].optionSetup?.languages?.length > 0 && <Text className="text-sm text-gray-600 dark:text-gray-400 mb-1"><Text className="font-medium text-gray-900 dark:text-white">Guide:</Text> {displayExp.bookingOptions[selectedOptionIndex].optionSetup.languages.join(', ')}</Text>}
+                                                    {displayExp.bookingOptions[selectedOptionIndex].availabilityAndPricing?.capacity && <Text className="text-sm text-gray-600 dark:text-gray-400 mb-1"><Text className="font-medium text-gray-900 dark:text-white">Capacity:</Text> {displayExp.bookingOptions[selectedOptionIndex].availabilityAndPricing.capacity}</Text>}
+                                                </View>
+
+                                                {displayExp.bookingOptions[selectedOptionIndex].availabilityAndPricing?.pricingTiers?.length > 0 && (
+                                                    <View className="mb-4">
+                                                        <View className="flex-row items-center mb-2">
+                                                            <Ionicons name="pricetag-outline" size={16} color="#002b5c" style={{ marginRight: 6 }} />
+                                                            <Text className="font-bold text-sm text-gray-800 dark:text-gray-200">Pricing Tiers</Text>
+                                                        </View>
+                                                        {displayExp.bookingOptions[selectedOptionIndex].availabilityAndPricing.pricingTiers.map((tier: any, idx: number) => (
+                                                            <View key={idx} className="flex-row justify-between items-center bg-white dark:bg-[#1c1c1e] border border-gray-200 dark:border-gray-700 px-3 py-2 rounded-lg mb-2">
+                                                                <Text className="font-medium text-sm text-gray-800 dark:text-gray-200">{tier.title} <Text className="text-xs text-gray-400">({tier.minAge}-{tier.maxAge} yrs)</Text></Text>
+                                                                <Text className="font-bold text-sm text-gray-900 dark:text-white">{formatPrice(tier.price?.toString(), displayExp.bookingOptions[selectedOptionIndex].availabilityAndPricing?.currency || displayExp.currency)}</Text>
+                                                            </View>
+                                                        ))}
+                                                    </View>
+                                                )}
+
+                                                <View className="mb-4">
+                                                    <View className="flex-row items-center mb-2">
+                                                        <Ionicons name="location-outline" size={16} color="#002b5c" style={{ marginRight: 6 }} />
+                                                        <Text className="font-bold text-sm text-gray-800 dark:text-gray-200">Meeting & Pickup</Text>
+                                                    </View>
+                                                    <Text className="text-sm text-gray-600 dark:text-gray-400 mb-1"><Text className="font-medium text-xs uppercase bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-1 py-0.5 rounded mr-1">{displayExp.bookingOptions[selectedOptionIndex].meetingPointOrPickup?.meetingType || 'MEET AT LOCATION'}</Text></Text>
+                                                    {displayExp.bookingOptions[selectedOptionIndex].meetingPointOrPickup?.meetingAddress && <Text className="text-sm text-gray-600 dark:text-gray-400 mb-1"><Text className="font-medium text-gray-900 dark:text-white">Address:</Text> {displayExp.bookingOptions[selectedOptionIndex].meetingPointOrPickup.meetingAddress}</Text>}
+                                                    {displayExp.bookingOptions[selectedOptionIndex].meetingPointOrPickup?.pickupType && <Text className="text-sm text-gray-600 dark:text-gray-400 mb-1"><Text className="font-medium text-gray-900 dark:text-white">Pickup:</Text> {displayExp.bookingOptions[selectedOptionIndex].meetingPointOrPickup.pickupType}</Text>}
+                                                    {displayExp.bookingOptions[selectedOptionIndex].meetingPointOrPickup?.arrivalTime && <Text className="text-sm text-gray-600 dark:text-gray-400 mb-1"><Text className="font-medium text-gray-900 dark:text-white">Arrive:</Text> {displayExp.bookingOptions[selectedOptionIndex].meetingPointOrPickup.arrivalTime}</Text>}
+                                                </View>
+
+                                                {displayExp.bookingOptions[selectedOptionIndex].cutOff && (
+                                                    <View>
+                                                        <View className="flex-row items-center mb-2">
+                                                            <Ionicons name="checkmark-circle-outline" size={16} color="#002b5c" style={{ marginRight: 6 }} />
+                                                            <Text className="font-bold text-sm text-gray-800 dark:text-gray-200">Policies</Text>
+                                                        </View>
+                                                        <Text className="text-sm text-gray-600 dark:text-gray-400 mb-1"><Text className="font-medium text-gray-900 dark:text-white">Cancellation:</Text> {displayExp.bookingOptions[selectedOptionIndex].cutOff.cancellationPolicy.replace(/_/g, ' ').toUpperCase()}</Text>
+                                                        <Text className="text-sm text-gray-600 dark:text-gray-400 mb-1"><Text className="font-medium text-gray-900 dark:text-white">Cut-off:</Text> {displayExp.bookingOptions[selectedOptionIndex].cutOff.cutoffHours} hours before</Text>
+                                                    </View>
+                                                )}
+                                            </View>
+                                        )}
+                                    </>
+                                ) : (
+                                    <View className="border border-gray-200 dark:border-gray-800 rounded-2xl p-4 bg-white dark:bg-[#252527]">
+                                        <Text className="text-gray-500 text-center">No options available for this date.</Text>
+                                    </View>
+                                )}
+
+                                {/* Badges under Booking Actions */}
+                                <View className="flex-row items-start mb-2 px-2 mt-4">
+                                    <Ionicons name="checkmark-circle-outline" size={22} color="#10b981" className="mr-3" />
+                                    <View className="flex-1">
+                                        <Text className="text-gray-900 dark:text-white font-extrabold text-base mb-1">Free cancellation</Text>
+                                        <Text className="text-gray-500 dark:text-gray-400 text-sm">Cancel up to 24 hours in advance for a full refund</Text>
+                                    </View>
                                 </View>
                             </View>
-                        </View>
+                        )}
 
                         <View className="h-[1px] bg-gray-200 dark:bg-gray-800 mt-4 mb-8" />
 
@@ -976,7 +1050,7 @@ export default function ExperienceDetail({ visible, experience, onClose }: Props
                         </View>
                     </View>
                     <TouchableOpacity 
-                        onPress={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
+                        onPress={() => setIsTicketModalVisible(true)}
                         className="bg-[#007aff] px-6 py-3.5 rounded-full"
                         activeOpacity={0.8}
                     >
@@ -1039,9 +1113,58 @@ export default function ExperienceDetail({ visible, experience, onClose }: Props
                             adultCount={adultCount}
                             childCount={childCount}
                             tierCounts={tierCounts}
+                            selectedOptionIndex={selectedOptionIndex}
                         />
-                    )
-                }
+                    )}
+
+                {/* Ticket Selection Modal */}
+                <Modal visible={isTicketModalVisible} transparent={true} animationType="slide">
+                    <TouchableOpacity
+                        className="flex-1 bg-black/50 justify-end"
+                        activeOpacity={1}
+                        onPress={() => setIsTicketModalVisible(false)}
+                    >
+                        <TouchableOpacity activeOpacity={1} className="bg-white dark:bg-[#1c1c1e] rounded-t-3xl p-6 pb-10">
+                            <View className="flex-row justify-between items-center mb-6">
+                                <Text className="text-2xl font-extrabold text-gray-900 dark:text-white">Select Tickets</Text>
+                                <TouchableOpacity onPress={() => setIsTicketModalVisible(false)} className="w-8 h-8 bg-gray-100 dark:bg-gray-800 rounded-full items-center justify-center">
+                                    <Ionicons name="close" size={20} color="#6b7280" />
+                                </TouchableOpacity>
+                            </View>
+
+                            <View className="bg-gray-50 dark:bg-[#252527] rounded-3xl p-2 mb-6 border border-gray-200 dark:border-gray-800">
+                                {Object.entries(participantCounts).map(([type, count], index) => {
+                                    return (
+                                        <React.Fragment key={index}>
+                                            {index > 0 && <View className="h-[1px] bg-gray-200 dark:bg-gray-700 mx-3 my-1" />}
+                                            <View className="flex-row items-center justify-between px-3 py-3">
+                                                <View>
+                                                    <Text className="text-gray-900 dark:text-white font-bold text-base">{type}</Text>
+                                                </View>
+                                                <View className="flex-row items-center gap-3">
+                                                    <TouchableOpacity onPress={() => setParticipantCounts(prev => ({...prev, [type]: Math.max(type === 'Adult' ? 1 : 0, count - 1)}))} className="w-10 h-10 rounded-full bg-white dark:bg-gray-800 items-center justify-center shadow-sm border border-gray-100 dark:border-gray-700">
+                                                        <Ionicons name="remove" size={20} color="#111827" className="dark:text-white" style={{ opacity: type === 'Adult' && count <= 1 ? 0.3 : 1 }} />
+                                                    </TouchableOpacity>
+                                                    <Text className="text-gray-900 dark:text-white font-extrabold text-lg w-6 text-center">{count}</Text>
+                                                    <TouchableOpacity onPress={() => setParticipantCounts(prev => ({...prev, [type]: count + 1}))} className="w-10 h-10 rounded-full bg-white dark:bg-gray-800 items-center justify-center shadow-sm border border-gray-100 dark:border-gray-700">
+                                                        <Ionicons name="add" size={20} color="#111827" className="dark:text-white" />
+                                                    </TouchableOpacity>
+                                                </View>
+                                            </View>
+                                        </React.Fragment>
+                                    );
+                                })}
+                            </View>
+
+                            <TouchableOpacity
+                                onPress={() => setIsTicketModalVisible(false)}
+                                className="bg-[#002b5c] dark:bg-[#58a6ff] w-full py-4 rounded-full flex-row items-center justify-center shadow-md"
+                            >
+                                <Text className="text-white font-extrabold text-lg">Apply</Text>
+                            </TouchableOpacity>
+                        </TouchableOpacity>
+                    </TouchableOpacity>
+                </Modal>
             </View >
         </Modal >
     );

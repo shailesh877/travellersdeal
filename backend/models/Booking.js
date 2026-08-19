@@ -37,6 +37,10 @@ const bookingSchema = new mongoose.Schema({
         type: Number,
         required: true,
     },
+    currency: {
+        type: String,
+        default: 'USD',
+    },
     status: {
         type: String,
         enum: ['pending', 'confirmed', 'cancelled'],

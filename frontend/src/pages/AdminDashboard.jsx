@@ -619,7 +619,7 @@ const AdminDashboard = () => {
                                                     <div className="text-xs font-medium text-gray-600 mt-1">{b.slots} Person(s)</div>
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap">
-                                                    <div className="font-bold text-gray-900">${b.totalPrice}</div>
+                                                    <div className="font-bold text-gray-900">{{ 'USD': '$', 'EUR': '€', 'GBP': '£', 'INR': '₹', 'AED': 'AED ', 'JPY': '¥' }[b.currency || b.experience?.bookingOptions?.[0]?.availabilityAndPricing?.currency || b.experience?.currency || 'USD'] || '$'}{b.totalPrice}</div>
                                                     <div className="flex items-center gap-1 mt-1">
                                                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${b.paymentStatus === 'paid' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                                                             {b.paymentStatus}

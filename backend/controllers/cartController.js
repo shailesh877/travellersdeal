@@ -51,34 +51,25 @@ const addToCart = async (req, res) => {
             cart = new Cart({ user: req.user._id, items: [] });
         }
 
-        // Check if item already exists in cart
-        const existingItemIndex = cart.items.findIndex(
-            item => item.experience.toString() === experienceId &&
-                new Date(item.date).toDateString() === new Date(date).toDateString()
-        );
-
-        if (existingItemIndex > -1) {
-            // Update quantity if item exists
-            cart.items[existingItemIndex].quantity += quantity;
-        } else {
-            // Calculate fallback price if not provided
-            let calculatedPrice = priceAtAdd || 0;
-            if (!priceAtAdd && experience.bookingOptions && experience.bookingOptions.length > 0) {
-                const opt = experience.bookingOptions[0];
-                calculatedPrice = opt.availabilityAndPricing?.pricingTiers?.length > 0 
-                    ? opt.availabilityAndPricing.pricingTiers[0].price 
-                    : (opt.availabilityAndPricing?.price || 0);
-            }
-
-            // Add new item
-            cart.items.push({
-                experience: experienceId,
-                quantity,
-                date: date || new Date(),
-                timeSlot: timeSlot || '10:00 AM',
-                priceAtAdd: calculatedPrice
-            });
+        // Calculate fallback price if not provided
+        let calculatedPrice = priceAtAdd || 0;
+        if (!priceAtAdd && experience.bookingOptions && experience.bookingOptions.length > 0) {
+            const opt = experience.bookingOptions[0];
+            calculatedPrice = opt.availabilityAndPricing?.pricingTiers?.length > 0 
+                ? opt.availabilityAndPricing.pricingTiers[0].price 
+                : (opt.availabilityAndPricing?.price || 0);
         }
+
+        // Replace entire cart with the new item (only 1 experience allowed)
+        // Using splice to ensure Mongoose tracks the array modification properly
+        cart.items.splice(0, cart.items.length);
+        cart.items.push({
+            experience: experienceId,
+            quantity,
+            date: date || new Date(),
+            timeSlot: timeSlot || '10:00 AM',
+            priceAtAdd: calculatedPrice
+        });
 
         await cart.save();
         await cart.populate('items.experience');

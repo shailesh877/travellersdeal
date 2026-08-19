@@ -14,30 +14,34 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { API_URL } from "../constants/Config";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { formatPrice, getAdultPrice, getChildPrice } from "../utils/currency";
+import { formatPrice, getAdultPrice, getChildPrice, getDisplayPrice } from "../utils/currency";
 import RazorpayWebCheckout from "./RazorpayWebCheckout";
 
 interface Props {
     visible: boolean;
     onClose: () => void;
     experience: {
-        id: string;
+        id?: string;
+        _id?: string;
         title: string;
         price: string;
         image: string;
         currency?: string;
         rating?: number | string;
+        bookingOptions?: any[];
     } | null;
     selectedDate: string | null;
     selectedTime: string | null;
     adultCount: number;
     childCount?: number;
     tierCounts?: { [key: number]: number };
+    cartItems?: any[];
+    selectedOptionIndex?: number;
 }
 
 type Step = 'form' | 'success';
 
-export default function BookingFlow({ visible, onClose, experience, selectedDate, selectedTime, adultCount = 1, childCount = 0, tierCounts }: Props) {
+export default function BookingFlow({ visible, onClose, experience, selectedDate, selectedTime, adultCount = 1, childCount = 0, tierCounts, cartItems, selectedOptionIndex = 0 }: Props) {
     const insets = useSafeAreaInsets();
     const router = useRouter();
     const [step, setStep] = useState<Step>('form');
@@ -75,13 +79,13 @@ export default function BookingFlow({ visible, onClose, experience, selectedDate
 
     if (!experience) return null;
 
-    const currency = experience.currency || 'INR';
+    const currency = experience.bookingOptions?.[0]?.availabilityAndPricing?.currency || experience.currency || 'USD';
 
     const getDynamicTiers = () => {
         let tiersToRender: any = [];
         const displayExp: any = experience;
-        if (displayExp?.bookingOptions?.length > 0) {
-            const opt = displayExp.bookingOptions[0];
+        if (displayExp?.bookingOptions?.length > selectedOptionIndex) {
+            const opt = displayExp.bookingOptions[selectedOptionIndex];
             if (opt?.availabilityAndPricing?.pricingTiers?.length > 0) {
                 tiersToRender = opt.availabilityAndPricing.pricingTiers;
             } else {
@@ -101,33 +105,39 @@ export default function BookingFlow({ visible, onClose, experience, selectedDate
     let participantsString = '';
     const tierBreakdown: any[] = [];
 
-    if (tierCounts) {
-        const tiers = getDynamicTiers();
-        tiers.forEach((tier: any, index: number) => {
-            const isAdultTier = tier.title.toLowerCase().includes('adult') || (index === 0 && !tiers.some((t: any) => t.title.toLowerCase().includes('adult')));
-            const isChildTier = tier.title.toLowerCase().includes('child') || (index === 1 && !tiers.some((t: any) => t.title.toLowerCase().includes('child')));
-            const count = tierCounts[index] !== undefined ? tierCounts[index] : (isAdultTier ? adultCount : (isChildTier ? childCount : 0));
-            
-            if (count && count > 0) {
-                totalQuantity += count;
-                computedBaseAmount += (tier.price * count);
-                participantsString += `${count} ${tier.title}${count > 1 && !tier.title.toLowerCase().endsWith('s') && !tier.title.toLowerCase().includes('children') ? 's' : ''} + `;
-                tierBreakdown.push({ title: tier.title, quantity: count, price: tier.price });
-            }
-        });
-        if (participantsString.endsWith(' + ')) {
-            participantsString = participantsString.slice(0, -3);
-        }
+    if (cartItems && cartItems.length > 0) {
+        // Bulk Cart Checkout Calculation
+        totalQuantity = cartItems.reduce((acc, item) => acc + item.quantity, 0);
+        computedBaseAmount = cartItems.reduce((acc, item) => acc + ((item.priceAtAdd || getDisplayPrice(item.experience || experience)) * item.quantity), 0);
+        participantsString = `${totalQuantity} Items in Cart`;
     } else {
-        const adultUnitAmount = getAdultPrice(experience);
-        const childUnitAmount = getChildPrice(experience);
-        totalQuantity = adultCount + (childCount || 0);
-        computedBaseAmount = (adultUnitAmount * adultCount) + (childUnitAmount * (childCount || 0));
-        participantsString = `${adultCount} ${adultCount === 1 ? 'Adult' : 'Adults'} ${(childCount || 0) > 0 ? ` + ${childCount} ${childCount === 1 ? 'Child' : 'Children'}` : ''}`;
-        
-        tierBreakdown.push({ title: 'Adult', quantity: adultCount, price: adultUnitAmount });
-        if (childCount && childCount > 0) {
-            tierBreakdown.push({ title: 'Child', quantity: childCount, price: childUnitAmount });
+        // Single Experience Checkout Calculation
+        if (tierCounts && Object.keys(tierCounts).length > 0) {
+            const tiers = getDynamicTiers();
+            tiers.forEach((tier: any, index: number) => {
+                const count = tierCounts[index] || 0;
+                if (count > 0) {
+                    const price = parseFloat(tier.price) || 0;
+                    totalQuantity += count;
+                    computedBaseAmount += (price * count);
+                    participantsString += `${count} ${tier.title} + `;
+                    tierBreakdown.push({ title: tier.title, quantity: count, price: price });
+                }
+            });
+            if (participantsString.endsWith(' + ')) {
+                participantsString = participantsString.slice(0, -3);
+            }
+        } else {
+            const adultUnitAmount = getAdultPrice(experience);
+            const childUnitAmount = getChildPrice(experience);
+            totalQuantity = adultCount + (childCount || 0);
+            computedBaseAmount = (adultUnitAmount * adultCount) + (childUnitAmount * (childCount || 0));
+            participantsString = `${adultCount} ${adultCount === 1 ? 'Adult' : 'Adults'} ${(childCount || 0) > 0 ? ` + ${childCount} ${childCount === 1 ? 'Child' : 'Children'}` : ''}`;
+            
+            tierBreakdown.push({ title: 'Adult', quantity: adultCount, price: adultUnitAmount });
+            if (childCount && childCount > 0) {
+                tierBreakdown.push({ title: 'Child', quantity: childCount, price: childUnitAmount });
+            }
         }
     }
 
@@ -156,25 +166,47 @@ export default function BookingFlow({ visible, onClose, experience, selectedDate
         }
 
         try {
-            const response = await fetch(`${API_URL}/bookings`, {
+            let endpoint = `${API_URL}/bookings`;
+            let body: any = {
+                experienceId: experience.id,
+                date: selectedDate ? new Date(selectedDate).toISOString() : new Date().toISOString(),
+                slots: adultCount + childCount,
+                adultCount: adultCount,
+                childCount: childCount,
+                timeSlot: selectedTime || '',
+                totalPrice: totalAmount,
+                paymentStatus,
+                paymentId: paymentId || undefined,
+                tierBreakdown: tierBreakdown,
+                travellerInfo: { name, email, phone },
+                currency
+            };
+
+            if (cartItems && cartItems.length > 0) {
+                endpoint = `${API_URL}/bookings/cart`;
+                body = {
+                    paymentStatus,
+                    paymentId: paymentId || undefined,
+                    travellerInfo: { name, email, phone },
+                    items: cartItems.map(item => ({
+                        experienceId: item.experience?._id || item.experience,
+                        date: item.date,
+                        timeSlot: item.timeSlot,
+                        slots: item.quantity,
+                        totalPrice: item.priceAtAdd * item.quantity + (item.priceAtAdd * item.quantity * 0.18), // individual total including tax
+                        currency: item.experience?.bookingOptions?.[0]?.availabilityAndPricing?.currency || item.experience?.currency || 'USD'
+                    })),
+                    currency
+                };
+            }
+
+            const response = await fetch(endpoint, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify({
-                    experienceId: experience.id,
-                    date: selectedDate ? new Date(selectedDate).toISOString() : new Date().toISOString(),
-                    slots: adultCount + childCount,
-                    adultCount: adultCount,
-                    childCount: childCount,
-                    timeSlot: selectedTime || '',
-                    totalPrice: totalAmount,
-                    paymentStatus,
-                    paymentId: paymentId || undefined,
-                    tierBreakdown: tierBreakdown,
-                    travellerInfo: { name, email, phone },
-                })
+                body: JSON.stringify(body)
             });
 
             const data = await response.json();
@@ -335,22 +367,21 @@ export default function BookingFlow({ visible, onClose, experience, selectedDate
                         </View>
                         <View>
                             <Text className="text-gray-400 dark:text-gray-500 text-[10px] font-bold uppercase">Date</Text>
-                            <Text className="text-gray-900 dark:text-white font-bold text-sm">{selectedDate}</Text>
+                            <Text className="text-gray-900 dark:text-white font-bold text-sm">{cartItems?.length ? 'Multiple Dates' : selectedDate ? new Date(selectedDate).toDateString() : 'Select Date'}</Text>
                         </View>
                     </View>
 
-                    {selectedTime ? (
+                    {cartItems?.length || selectedTime ? (
                         <View className="flex-row items-center mb-2">
                             <View className="w-8 h-8 rounded-full bg-red-50 dark:bg-red-900/20 items-center justify-center mr-3">
                                 <Ionicons name="time-outline" size={16} color="#ef4444" />
                             </View>
                             <View>
                                 <Text className="text-gray-400 dark:text-gray-500 text-[10px] font-bold uppercase">Time</Text>
-                                <Text className="text-gray-900 dark:text-white font-bold text-sm">{selectedTime}</Text>
+                                <Text className="text-gray-900 dark:text-white font-bold text-sm">{cartItems?.length ? 'Multiple Slots' : selectedTime}</Text>
                             </View>
                         </View>
                     ) : null}
-
                     <View className="flex-row items-center">
                         <View className="w-8 h-8 rounded-full bg-purple-50 dark:bg-purple-900/20 items-center justify-center mr-3">
                             <Ionicons name="people-outline" size={16} color="#7c3aed" />

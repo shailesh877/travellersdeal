@@ -20,6 +20,24 @@ export default function RegisterScreen() {
             Alert.alert("Error", "Please fill all required fields");
             return;
         }
+
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email.trim())) {
+            Alert.alert("Invalid Email", "Please enter a valid email address");
+            return;
+        }
+
+        const cleanedMobile = mobile.trim().replace(/\D/g, '');
+        if (cleanedMobile.length !== 10) {
+            Alert.alert("Invalid Mobile", "Please enter a valid 10-digit mobile number");
+            return;
+        }
+
+        if (password.length < 6) {
+            Alert.alert("Weak Password", "Password must be at least 6 characters long");
+            return;
+        }
+
         if (password !== confirmPassword) {
             Alert.alert("Error", "Passwords do not match");
             return;
@@ -59,7 +77,7 @@ export default function RegisterScreen() {
     const isPasswordMatch = password === confirmPassword && password.length > 0;
     const passwordStatus = !password || !confirmPassword ? "border-gray-100" : isPasswordMatch ? "border-green-500" : "border-red-500";
 
-    const renderInput = (label: string, value: string, setValue: (t: string) => void, placeholder: string, icon: string, required: boolean = false, keyboardType: any = "default", autoCapitalize: any = "sentences", secureTextEntry: boolean = false, statusColor: string = "border-gray-100") => (
+    const renderInput = (label: string, value: string, setValue: (t: string) => void, placeholder: string, icon: string, required: boolean = false, keyboardType: any = "default", autoCapitalize: any = "sentences", secureTextEntry: boolean = false, statusColor: string = "border-gray-100", maxLength?: number) => (
         <View className="mb-5">
             <Text className="text-[#002b5c] font-bold text-xs uppercase tracking-widest mb-2 ml-1">
                 {label} {required && <Text className="text-red-500">*</Text>}
@@ -75,6 +93,7 @@ export default function RegisterScreen() {
                     secureTextEntry={secureTextEntry}
                     className="flex-1 ml-3 text-gray-800 text-base"
                     placeholderTextColor="#9ca3af"
+                    maxLength={maxLength}
                 />
             </View>
         </View>
@@ -114,7 +133,7 @@ export default function RegisterScreen() {
                         {/* Form Section */}
                         <View>
                             {renderInput("Full Name", name, setName, "Enter your full name", "person-outline", true)}
-                            {renderInput("Mobile Number", mobile, setMobile, "Enter 10-digit number", "call-outline", true, "phone-pad")}
+                            {renderInput("Mobile Number", mobile, (t) => setMobile(t.replace(/[^0-9]/g, '')), "Enter 10-digit number", "call-outline", true, "number-pad", "sentences", false, "border-gray-100", 10)}
                             {renderInput("Email Address", email, setEmail, "Enter your email", "mail-outline", true, "email-address", "none")}
                             {renderInput("Create Password", password, setPassword, "Create a strong password", "lock-closed-outline", true, "default", "none", true, passwordStatus)}
                             {renderInput("Confirm Password", confirmPassword, setConfirmPassword, "Re-enter your password", "shield-checkmark-outline", true, "default", "none", true, passwordStatus)}
