@@ -8,6 +8,7 @@ import { API_URL } from "../../constants/Config";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "expo-router";
 import { getImageUrl } from "../../utils/image";
+import { formatPrice } from "../../utils/currency";
 
 // Backend Booking Interface
 interface Booking {
@@ -19,9 +20,12 @@ interface Booking {
         location?: { city: string; country: string };
         duration: string;
         itinerary: { title: string; description: string }[];
+        currency?: string;
+        bookingOptions?: any[];
     }; // Populated
     date: string;
     totalPrice: number;
+    currency?: string;
     status: string;
     paymentStatus: string;
     paymentId?: string;
@@ -148,7 +152,7 @@ export default function BookingsScreen() {
                     id: b._id,
                     title: b.experience?.title || 'Untitled Experience',
                     date: b.date,
-                    amount: `₹${b.totalPrice}`,
+                    amount: formatPrice(b.totalPrice, b.currency || b.experience?.currency || 'INR'),
                     status: b.status,
                     image: getImageUrl(b.experience, 'https://via.placeholder.com/150'),
 
@@ -162,9 +166,9 @@ export default function BookingsScreen() {
                     })) || [],
 
                     payment: {
-                        basePrice: `₹${b.totalPrice}`, // Simplified
+                        basePrice: formatPrice(b.totalPrice, b.currency || b.experience?.currency || 'INR'), // Simplified
                         taxes: 'Included',
-                        total: `₹${b.totalPrice}`,
+                        total: formatPrice(b.totalPrice, b.currency || b.experience?.currency || 'INR'),
                         method: b.paymentStatus === 'paid' ? 'Online' : 'Pending',
                         transactionId: b.paymentId || 'N/A'
                     },
@@ -241,7 +245,7 @@ export default function BookingsScreen() {
                         </TouchableOpacity>
                     )}
                     keyExtractor={item => item.id}
-                    contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 10, paddingBottom: 100 }}
+                    contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 10, paddingBottom: (insets?.bottom ?? 0) + 100 }}
                     showsVerticalScrollIndicator={false}
                     refreshControl={
                         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />

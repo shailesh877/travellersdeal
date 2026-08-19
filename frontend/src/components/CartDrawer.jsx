@@ -31,8 +31,9 @@ const CartDrawer = () => {
     }, 0);
 
     const displayTotal = total > 0 ? total : calculatedTotal;
-    const currency = items.length > 0 && items[0].experience?.currency ? items[0].experience.currency : 'USD';
-    const currencySymbol = { 'USD': '$', 'EUR': '€', 'GBP': '£', 'INR': '₹', 'AED': 'AED ', 'JPY': '¥' }[currency] || '$';
+    const currency = items.length > 0 && items[0].currency ? items[0].currency : (items.length > 0 && items[0].experience?.currency ? items[0].experience.currency : 'USD');
+    const getCurrencySymbol = (c) => c ? `${c} ` : '';
+    const currencySymbol = getCurrencySymbol(currency);
 
     const handleCheckout = () => {
         setCartOpen(false);
@@ -46,7 +47,7 @@ const CartDrawer = () => {
                 state: {
                     amount: itemPrice * item.quantity,
                     experienceTitle: exp?.title,
-                    currency: exp?.currency || 'USD',
+                    currency: item.currency || exp?.currency || 'USD',
                     experienceId: exp?._id,
                     date: item.date,
                     slots: item.quantity,
@@ -164,7 +165,7 @@ const CartDrawer = () => {
                                             </div>
                                             <div className="flex items-center gap-3">
                                                 <span className="font-bold text-gray-900">
-                                                    {{ 'USD': '$', 'EUR': '€', 'GBP': '£', 'INR': '₹', 'AED': 'AED ', 'JPY': '¥' }[exp?.currency] || '$'}{(getItemPrice(item) * item.quantity).toFixed(2)}
+                                                    {getCurrencySymbol(item.currency || exp?.currency || 'USD')}{(getItemPrice(item) * item.quantity).toFixed(2)}
                                                 </span>
                                                 <button onClick={() => removeItem(item._id)} className="text-red-400 hover:text-red-600 transition-colors p-1">
                                                     <FaTrash className="text-xs" />

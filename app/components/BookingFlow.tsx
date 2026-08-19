@@ -79,7 +79,7 @@ export default function BookingFlow({ visible, onClose, experience, selectedDate
 
     if (!experience) return null;
 
-    const currency = experience.bookingOptions?.[0]?.availabilityAndPricing?.currency || experience.currency || 'USD';
+    const currency = experience.bookingOptions?.[selectedOptionIndex]?.availabilityAndPricing?.currency || experience.currency || 'USD';
 
     const getDynamicTiers = () => {
         let tiersToRender: any = [];

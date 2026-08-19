@@ -37,18 +37,12 @@ const getCart = async (req, res) => {
 // @access  Private
 const addToCart = async (req, res) => {
     try {
-        const { experienceId, quantity = 1, date, timeSlot, priceAtAdd } = req.body;
+        const { experienceId, quantity = 1, date, timeSlot, priceAtAdd, currency } = req.body;
 
         // Validate experience exists
         const experience = await Experience.findById(experienceId);
         if (!experience) {
             return res.status(404).json({ message: 'Experience not found' });
-        }
-
-        // Find or create cart
-        let cart = await Cart.findOne({ user: req.user._id });
-        if (!cart) {
-            cart = new Cart({ user: req.user._id, items: [] });
         }
 
         // Calculate fallback price if not provided
@@ -60,24 +54,28 @@ const addToCart = async (req, res) => {
                 : (opt.availabilityAndPricing?.price || 0);
         }
 
-        // Replace entire cart with the new item (only 1 experience allowed)
-        // Using splice to ensure Mongoose tracks the array modification properly
-        cart.items.splice(0, cart.items.length);
-        cart.items.push({
-            experience: experienceId,
-            quantity,
-            date: date || new Date(),
-            timeSlot: timeSlot || '10:00 AM',
-            priceAtAdd: calculatedPrice
-        });
-
-        await cart.save();
-        await cart.populate('items.experience');
+        // Replace entire cart using findOneAndUpdate to guarantee atomic update
+        const updatedCart = await Cart.findOneAndUpdate(
+            { user: req.user._id },
+            {
+                $set: {
+                    items: [{
+                        experience: experienceId,
+                        quantity,
+                        date: date || new Date(),
+                        timeSlot: timeSlot || '10:00 AM',
+                        priceAtAdd: calculatedPrice,
+                        currency: currency || experience.currency || 'USD'
+                    }]
+                }
+            },
+            { upsert: true, new: true }
+        ).populate('items.experience');
 
         res.json({
-            items: cart.items,
-            total: cart.getTotal(),
-            itemCount: cart.getItemCount()
+            items: updatedCart.items,
+            total: updatedCart.getTotal(),
+            itemCount: updatedCart.getItemCount()
         });
     } catch (error) {
         res.status(500).json({ message: error.message });

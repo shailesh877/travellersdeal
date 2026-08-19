@@ -282,4 +282,63 @@ const resetPassword = async (req, res) => {
     }
 };
 
-module.exports = { registerUser, loginUser, googleLogin, facebookLogin, forgotPassword, resetPassword };
+// @desc    Continue with Email (Smart Login/Register)
+// @route   POST /api/auth/continue
+// @access  Public
+const continueWithEmail = async (req, res) => {
+    try {
+        const { name, email, password } = req.body;
+
+        if (!email || !password) {
+            return res.status(400).json({ message: 'Email and password are required' });
+        }
+
+        let user = await User.findOne({ email });
+
+        if (user) {
+            // Login flow
+            if (await user.matchPassword(password)) {
+                if (user.isActive === false) {
+                    return res.status(403).json({ message: 'Your account has been blocked by the administrator.' });
+                }
+                return res.json({
+                    _id: user._id,
+                    name: user.name,
+                    email: user.email,
+                    role: user.role,
+                    isVerified: user.isVerified,
+                    isActive: user.isActive,
+                    token: generateToken(user._id),
+                });
+            } else {
+                return res.status(401).json({ message: 'Invalid email or password' });
+            }
+        } else {
+            // Register flow
+            user = await User.create({
+                name: name || email.split('@')[0],
+                email,
+                password,
+                role: 'traveler',
+            });
+
+            if (user) {
+                return res.status(201).json({
+                    _id: user._id,
+                    name: user.name,
+                    email: user.email,
+                    role: user.role,
+                    isVerified: user.isVerified,
+                    isActive: user.isActive,
+                    token: generateToken(user._id),
+                });
+            } else {
+                return res.status(400).json({ message: 'Invalid user data' });
+            }
+        }
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+module.exports = { registerUser, loginUser, googleLogin, facebookLogin, forgotPassword, resetPassword, continueWithEmail };

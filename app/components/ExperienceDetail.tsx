@@ -219,7 +219,7 @@ export default function ExperienceDetail({ visible, experience, onClose }: Props
         }
 
         let totalQty = 0;
-        const tiers = getDynamicTiers();
+        const tiers = displayExp?.bookingOptions?.[selectedOptionIndex]?.availabilityAndPricing?.pricingTiers || [];
         tiers.forEach((tier: any, index: number) => {
             const isAdultTier = tier.title.toLowerCase().includes('adult') || (index === 0 && !tiers.some((t: any) => t.title.toLowerCase().includes('adult')));
             const isChildTier = tier.title.toLowerCase().includes('child') || (index === 1 && !tiers.some((t: any) => t.title.toLowerCase().includes('child')));
@@ -815,7 +815,7 @@ export default function ExperienceDetail({ visible, experience, onClose }: Props
                                     <Ionicons name="people-outline" size={20} color="#1a2b49" style={{ marginRight: 12 }} />
                                     <Text className="text-[#1a2b49] font-bold text-base">
                                         {(() => {
-                                            let parts = [];
+                                            let parts: string[] = [];
                                             Object.entries(participantCounts).forEach(([type, count]) => {
                                                 if (count > 0) parts.push(`${type.split(' ')[0]} x ${count}`);
                                             });

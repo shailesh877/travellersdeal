@@ -140,35 +140,57 @@ export default function ProfileScreen() {
     return (
         <View className="flex-1 bg-white dark:bg-black" style={{ paddingTop: insets?.top ?? 0 }}>
             <ScrollView showsVerticalScrollIndicator={false}>
-                {/* PROFILE HEADER */}
-                <View className="px-6 pb-6 pt-4">
-                    <View className="flex-row items-center">
-                        <Text className="text-gray-900 dark:text-white text-3xl font-black">👋 {t('hi', { defaultValue: 'Hi' })} {userInfo?.name || 'Guest'}</Text>
-                    </View>
-                    <Text className="text-gray-500 dark:text-gray-400 text-sm mt-1">{userInfo?.email || 'Login to view details'}</Text>
+                {/* HEADER */}
+                <View className="px-6 pt-4 pb-4 bg-white dark:bg-black">
+                    <Text className="text-[#1a2b49] dark:text-white text-[28px] font-black">Profile</Text>
                 </View>
 
-                {/* SAVED / WISHLIST */}
-                <View className="bg-white dark:bg-black">
-                    <TouchableOpacity
-                        onPress={() => router.push("/(tabs)/wishlist")}
-                        className="flex-row items-center justify-between py-[18px] px-6 border-b border-gray-100 dark:border-gray-800"
-                    >
-                        <View className="flex-row items-center">
-                            <Ionicons name="heart-outline" size={22} color="#002b5c" />
-                            <Text className="text-[#2d323c] dark:text-gray-200 text-[16px] font-medium ml-4">My Wishlist</Text>
+                {!userInfo ? (
+                    <View className="px-6 pb-8 pt-2 items-center bg-white dark:bg-black border-b border-gray-100 dark:border-gray-800">
+                        <Text className="text-[#1a2b49] dark:text-white text-[15px] font-bold text-center mb-1.5">
+                            Access your bookings from any device
+                        </Text>
+                        <Text className="text-[#1a2b49] dark:text-gray-300 text-[13px] text-center mb-6 leading-5 px-2">
+                            Sign up, sync your existing bookings, add activities to your wishlist, and checkout quicker thanks to stored information.
+                        </Text>
+                        <TouchableOpacity 
+                            onPress={() => router.push('/(auth)/login')}
+                            className="bg-[#0071eb] px-10 py-3.5 rounded-full"
+                        >
+                            <Text className="text-white font-bold text-[15px]">Log in or sign up</Text>
+                        </TouchableOpacity>
+                    </View>
+                ) : (
+                    <>
+                        <View className="px-6 pb-6 bg-white dark:bg-black">
+                            <View className="flex-row items-center">
+                                <Text className="text-gray-900 dark:text-white text-2xl font-bold">👋 {t('hi', { defaultValue: 'Hi' })} {userInfo.name}</Text>
+                            </View>
+                            <Text className="text-gray-500 dark:text-gray-400 text-sm mt-1">{userInfo.email}</Text>
                         </View>
-                        <View className="flex-row items-center">
-                            {/* We could fetch count here, but for now just linking to wishlist is safer than showing 0 if not fetched */}
-                            <Ionicons name="chevron-forward" size={20} color="#6b7280" />
+
+                        {/* SAVED / WISHLIST */}
+                        <View className="bg-white dark:bg-black">
+                            <TouchableOpacity
+                                onPress={() => router.push("/(tabs)/wishlist")}
+                                className="flex-row items-center justify-between py-[18px] px-6 border-b border-gray-100 dark:border-gray-800 border-t"
+                            >
+                                <View className="flex-row items-center">
+                                    <Ionicons name="heart-outline" size={22} color="#002b5c" />
+                                    <Text className="text-[#2d323c] dark:text-gray-200 text-[16px] font-medium ml-4">My Wishlist</Text>
+                                </View>
+                                <View className="flex-row items-center">
+                                    <Ionicons name="chevron-forward" size={20} color="#6b7280" />
+                                </View>
+                            </TouchableOpacity>
                         </View>
-                    </TouchableOpacity>
-                </View>
+                    </>
+                )}
 
                 {/* SETTINGS SECTION */}
                 {renderSectionHeader(t('settings'))}
                 <View>
-                    {renderRow(t('profile'), undefined, false, true, () => router.push('/edit-profile'))}
+                    {userInfo && renderRow(t('profile'), undefined, false, true, () => router.push('/edit-profile'))}
                     {renderRow(t('language'), t('language_name'), false, true, () => setLanguageModalVisible(true))}
                     {renderRow(t('appearance'), getAppearanceLabel(), false, true, () => setAppearanceModalVisible(true))}
                 </View>
@@ -213,7 +235,7 @@ export default function ProfileScreen() {
                 <View>
                     {renderRow("General terms and conditions", undefined, false, true, () => Linking.openURL('https://travellersdeal.com/term'))}
                     {renderRow("Privacy Policy", undefined, false, true, () => Linking.openURL('https://travellersdeal.com/privacy-policy'))}
-                    {renderRow(t('logout'), undefined, true, false, handleLogout)}
+                    {userInfo && renderRow(t('logout'), undefined, true, false, handleLogout)}
                 </View>
 
                 {/* VERSION SECTION */}
@@ -223,7 +245,7 @@ export default function ProfileScreen() {
                     </Text>
                 </View>
 
-                <View className="h-10" />
+                <View style={{ height: (insets?.bottom ?? 0) + 80 }} />
             </ScrollView>
 
             {/* Language Selection Modal */}

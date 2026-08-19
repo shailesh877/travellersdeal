@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import React, { useCallback, useState } from "react";
 import { Dimensions, FlatList, Image, Text, TouchableOpacity, View, ActivityIndicator, RefreshControl, Alert } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import ExperienceDetail from "../../components/ExperienceDetail";
 import { API_URL } from "../../constants/Config";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -27,6 +27,7 @@ interface WishlistItem {
 }
 
 export default function WishlistScreen() {
+    const insets = useSafeAreaInsets();
     const [selectedExperience, setSelectedExperience] = useState<WishlistItem | null>(null);
     const [wishlist, setWishlist] = useState<WishlistItem[]>([]);
     const [loading, setLoading] = useState(true);
@@ -195,7 +196,7 @@ export default function WishlistScreen() {
                     data={wishlist}
                     renderItem={renderWishlistCard}
                     keyExtractor={(item) => item.id}
-                    contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 100, paddingTop: 10 }}
+                    contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 10, paddingBottom: (insets?.bottom ?? 0) + 100 }}
                     showsVerticalScrollIndicator={false}
                     refreshControl={
                         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />

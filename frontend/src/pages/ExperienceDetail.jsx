@@ -245,12 +245,21 @@ const ExperienceDetail = () => {
 
         const avgPrice = totalAmount / totalSlots;
 
+        let currency = experience.currency || 'USD';
+        if (experience.bookingOptions?.length > 0) {
+            const opt = experience.bookingOptions[optIndex];
+            if (opt?.availabilityAndPricing) {
+                currency = opt.availabilityAndPricing.currency || currency;
+            }
+        }
+
         const result = await addToCart({
             experienceId: experience._id,
             quantity: totalSlots,
             date,
             timeSlot: timeSlot || '',
             priceAtAdd: avgPrice,
+            currency: currency
         });
         if (result.success) {
             setCartMsg('Added to cart!');

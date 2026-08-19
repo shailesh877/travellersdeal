@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import React, { useCallback, useEffect, useState } from "react";
-import { Dimensions, FlatList, Image, ImageBackground, Platform, RefreshControl, ScrollView, Text, TextInput, TouchableOpacity, View, ActivityIndicator } from "react-native";
+import { Dimensions, FlatList, Image, ImageBackground, Platform, RefreshControl, ScrollView, Text, TextInput, TouchableOpacity, View, ActivityIndicator, Modal } from "react-native";
 import { useColorScheme } from "nativewind";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import ExperienceDetail from "../../components/ExperienceDetail";
@@ -44,9 +44,26 @@ export default function Home() {
     setRefreshing(false);
   }, []);
 
+  const [showLoginPopup, setShowLoginPopup] = useState(false);
+
   useEffect(() => {
     fetchData();
+    checkGuestAndPrompt();
   }, []);
+
+  const checkGuestAndPrompt = async () => {
+    try {
+      const userInfo = await AsyncStorage.getItem('userInfo');
+      if (!userInfo) {
+        // If not logged in, wait 10 seconds then show popup
+        setTimeout(() => {
+          setShowLoginPopup(true);
+        }, 10000);
+      }
+    } catch (e) {
+      console.log(e);
+    }
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -377,7 +394,7 @@ export default function Home() {
         </View>
 
         {/* TOP RATED EXPERIENCES */}
-        <View className="px-6 mt-4 mb-24">
+        <View style={{ paddingBottom: (insets?.bottom ?? 0) + 100 }} className="px-6 mt-4">
           <Text className="text-2xl font-bold text-[#1a2b49] dark:text-white mb-5">
             Top Rated Experiences
           </Text>
@@ -398,6 +415,32 @@ export default function Home() {
         experience={selectedExperience}
         onClose={() => setSelectedExperience(null)}
       />
+
+      {/* 10-Second Auto Login Prompt */}
+      <Modal visible={showLoginPopup} transparent animationType="slide">
+        <View className="flex-1 bg-black/60 justify-end">
+          <View className="bg-white dark:bg-[#1c1c1e] rounded-t-3xl p-6 pb-12 shadow-2xl">
+            <View className="flex-row justify-between items-center mb-4">
+              <Text className="text-[#1a2b49] dark:text-white text-2xl font-bold">Sign in for the best experience</Text>
+              <TouchableOpacity onPress={() => setShowLoginPopup(false)} className="bg-gray-100 dark:bg-gray-800 p-2 rounded-full">
+                <Ionicons name="close" size={24} color={isDark ? "white" : "black"} />
+              </TouchableOpacity>
+            </View>
+            <Text className="text-gray-600 dark:text-gray-400 mb-6 text-base">
+              Create an account or log in to save your favorite experiences, get personalized recommendations, and access exclusive travel deals.
+            </Text>
+            <TouchableOpacity 
+              onPress={() => {
+                setShowLoginPopup(false);
+                router.push('/(auth)/login');
+              }}
+              className="bg-[#0071eb] py-4 rounded-xl items-center"
+            >
+              <Text className="text-white font-bold text-lg">Continue to Login</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }

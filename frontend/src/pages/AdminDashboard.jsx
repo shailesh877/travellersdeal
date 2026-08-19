@@ -263,7 +263,7 @@ const AdminDashboard = () => {
     };
 
     const cards = [
-        { title: 'Total Revenue', value: `$${stats.totalRevenue ? stats.totalRevenue.toLocaleString() : '0'}`, icon: <FaMoneyBillWave />, color: 'bg-green-500', tab: 'bookings' },
+        { title: 'Total Revenue', value: `₹${stats.totalRevenue ? stats.totalRevenue.toLocaleString() : '0'}`, icon: <FaMoneyBillWave />, color: 'bg-green-500', tab: 'bookings' },
         { title: 'Total Bookings', value: stats.bookingCount, icon: <FaCalendarCheck />, color: 'bg-blue-500', tab: 'bookings' },
         { title: 'Experiences', value: stats.experienceCount, icon: <FaMapMarkedAlt />, color: 'bg-orange-500', tab: 'active-experiences' },
         { title: 'Registered Users', value: stats.userCount, icon: <FaUser />, color: 'bg-purple-500', tab: 'users' },

@@ -44,6 +44,8 @@ export default function RootLayout() {
   }, [fontsLoaded]);
 
   useEffect(() => {
+    if (!fontsLoaded) return; // Wait until fonts load and RootLayout is actually rendering the Stack
+
     const loadTheme = async () => {
       try {
         const savedTheme = await AsyncStorage.getItem(THEME_KEY);
@@ -58,9 +60,17 @@ export default function RootLayout() {
     };
     loadTheme();
 
-    // Check for user login status
-    const checkUser = async () => {
+    // Check for user login status and onboarding
+    const checkStatus = async () => {
       try {
+        const hasSeenOnboarding = await AsyncStorage.getItem('hasSeenOnboarding');
+        if (!hasSeenOnboarding) {
+          setTimeout(() => {
+            router.replace('/onboarding');
+          }, 0);
+          return;
+        }
+
         const userInfo = await AsyncStorage.getItem('userInfo');
         if (userInfo) {
           // Register for push notifications once we confirm user is logged in
@@ -69,13 +79,17 @@ export default function RootLayout() {
           setTimeout(() => {
             router.replace('/(tabs)');
           }, 0);
+        } else {
+          setTimeout(() => {
+            router.replace('/(auth)/login');
+          }, 0);
         }
       } catch (error) {
-        console.log('Error checking auth', error);
+        console.log('Error checking auth/onboarding', error);
       }
     }
-    checkUser();
-  }, []);
+    checkStatus();
+  }, [fontsLoaded]);
 
   if (!fontsLoaded) {
     return null; // Return null until fonts are loaded to prevent style flash
@@ -86,6 +100,7 @@ export default function RootLayout() {
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
         <Stack>
           <Stack.Screen name="index" options={{ headerShown: false }} />
+          <Stack.Screen name="onboarding" options={{ headerShown: false }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="(auth)" options={{ headerShown: false }} />
           <Stack.Screen name="edit-profile" options={{ headerShown: false }} />

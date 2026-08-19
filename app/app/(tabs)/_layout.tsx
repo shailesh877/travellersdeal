@@ -1,14 +1,26 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, useColorScheme } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const insets = useSafeAreaInsets();
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    const checkLogin = async () => {
+      try {
+        const userInfo = await AsyncStorage.getItem('userInfo');
+        setIsLoggedIn(!!userInfo);
+      } catch (e) {}
+    };
+    checkLogin();
+  }, []);
 
   return (
     <View style={{ flex: 1 }}>
@@ -33,12 +45,13 @@ export default function TabLayout() {
           tabBarInactiveTintColor: '#6b7280',
           headerShown: false,
           tabBarStyle: {
-            height: 80,
+            height: 65 + (insets?.bottom ?? 0),
             backgroundColor: isDark ? '#1a1a1a' : '#ffffff',
             borderTopWidth: 1,
             borderTopColor: isDark ? '#333333' : '#f3f4f6',
             position: 'absolute',
             paddingBottom: insets?.bottom ?? 0,
+            paddingTop: 10,
           },
           tabBarLabelStyle: {
             fontSize: 11,
@@ -141,7 +154,7 @@ export default function TabLayout() {
         <Tabs.Screen
           name="profile"
           options={{
-            title: 'Profile',
+            title: isLoggedIn ? 'Profile' : 'Log in',
             tabBarIcon: ({ color, focused }) => (
               <View className="items-center justify-center w-full h-full">
                 {focused && (

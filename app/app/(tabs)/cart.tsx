@@ -20,6 +20,7 @@ interface CartItem {
         category: string;
         images: string[];
         price: number;
+        currency?: string;
     };
     quantity: number;
     date: string;
@@ -201,7 +202,7 @@ export default function CartScreen() {
                         data={cartItems}
                         renderItem={renderCartItem}
                         keyExtractor={item => item._id}
-                        contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 10, paddingBottom: 250 }}
+                        contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 10, paddingBottom: (insets?.bottom ?? 0) + 250 }}
                         showsVerticalScrollIndicator={false}
                         refreshControl={
                             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
@@ -209,8 +210,8 @@ export default function CartScreen() {
                     />
 
                     <View
-                        style={{ paddingBottom: (insets?.bottom ?? 0) + 10 }}
-                        className="absolute bottom-0 left-0 right-0 bg-white dark:bg-[#1c1c1e] border-t border-gray-100 dark:border-gray-800 px-6 pt-6 pb-24 shadow-2xl"
+                        style={{ paddingBottom: (insets?.bottom ?? 0) + 90 }}
+                        className="absolute bottom-0 left-0 right-0 bg-white dark:bg-[#1c1c1e] border-t border-gray-100 dark:border-gray-800 px-6 pt-6 shadow-2xl"
                     >
                         <View className="flex-row justify-between items-center mb-2">
                             <Text className="text-gray-500 dark:text-gray-400">Subtotal</Text>

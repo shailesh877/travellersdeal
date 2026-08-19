@@ -28,11 +28,11 @@ export const CartProvider = ({ children }) => {
     // Fetch cart on login/logout
     useEffect(() => { fetchCart(); }, [fetchCart]);
 
-    const addToCart = async ({ experienceId, quantity = 1, date, timeSlot, priceAtAdd }) => {
+    const addToCart = async ({ experienceId, quantity = 1, date, timeSlot, priceAtAdd, currency }) => {
         if (!user) return { error: 'Please login to add to cart' };
         try {
             setLoading(true);
-            const { data } = await axios.post(`${API_URL}/cart`, { experienceId, quantity, date, timeSlot, priceAtAdd }, config());
+            const { data } = await axios.post(`${API_URL}/cart`, { experienceId, quantity, date, timeSlot, priceAtAdd, currency }, config());
             setCart(data);
             setCartOpen(true); // Open drawer after adding
             return { success: true };

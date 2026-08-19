@@ -23,6 +23,10 @@ const cartItemSchema = new mongoose.Schema({
     priceAtAdd: {
         type: Number,
         required: true
+    },
+    currency: {
+        type: String,
+        default: 'USD'
     }
 }, { _id: true });
 
