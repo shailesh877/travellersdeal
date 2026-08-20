@@ -21,7 +21,12 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.babbukallu.travellersdeal",
-      "googleServicesFile": "./google-services.json"
+      "googleServicesFile": "./google-services.json",
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyCigii1YD5BEmSScbAjG0rRtVbeijJ8QAc"
+        }
+      }
     },
     "web": {
       "output": "static",

@@ -211,10 +211,10 @@ export default function Home() {
             </TouchableOpacity>
           </View>
 
-          <View className="p-4 flex-1">
+          <View className="p-4 flex-1 justify-between">
             <View>
               <Text className="text-gray-500 dark:text-gray-400 text-[10px] font-bold tracking-widest uppercase mb-1">{item.category}</Text>
-              <Text className="text-gray-900 dark:text-white font-medium text-base leading-tight" numberOfLines={2}>{item.title}</Text>
+              <Text className="text-gray-900 dark:text-white font-medium text-base leading-tight" numberOfLines={1}>{item.title}</Text>
 
               {(typeof item.location === 'object' ? item.location?.city : item.location) ? (
                 <Text className="text-gray-500 dark:text-gray-400 text-[13px] mt-1" numberOfLines={1}>

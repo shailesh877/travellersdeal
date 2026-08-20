@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter, Stack } from "expo-router";
 import { useColorScheme } from "nativewind";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -289,7 +289,7 @@ export default function SearchScreen() {
 
     return (
         <View className="flex-1 bg-gray-50 dark:bg-black" style={{ paddingTop: insets.top }}>
-
+            <Stack.Screen options={{ headerShown: false }} />
             {/* Search Header */}
             <View className="bg-white dark:bg-[#1c1c1e] px-4 pt-3 pb-0 border-b border-gray-100 dark:border-gray-800">
                 <View className="flex-row items-center mb-3">

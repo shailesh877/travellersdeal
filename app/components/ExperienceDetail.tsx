@@ -4,10 +4,12 @@ import React, { useState, useEffect, useRef } from "react";
 import { Dimensions, Image, Modal, ScrollView, Text, TouchableOpacity, View, Alert, Platform, Linking, ActivityIndicator, Share } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import BookingFlow from "./BookingFlow";
+import FullItineraryModal from "./FullItineraryModal";
 import { API_URL } from "../constants/Config";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { formatPrice, getDisplayPrice, getChildPrice, getAdultPrice } from "../utils/currency";
 import { getImageUrlFromString } from "../utils/image";
+import { useColorScheme } from "nativewind";
 
 const { width } = Dimensions.get('window');
 
@@ -74,6 +76,8 @@ interface Props {
 }
 
 export default function ExperienceDetail({ visible, experience, onClose }: Props) {
+    const { colorScheme } = useColorScheme();
+    const isDark = colorScheme === 'dark';
     const insets = useSafeAreaInsets();
     const router = useRouter();
     const scrollViewRef = useRef<ScrollView>(null);
@@ -101,8 +105,9 @@ export default function ExperienceDetail({ visible, experience, onClose }: Props
     // Add state for full experience fetch
     const [fullExperience, setFullExperience] = useState<any>(null);
     const [loadingDetails, setLoadingDetails] = useState(false);
-    const [activeSection, setActiveSection] = useState<string | null>(null);
+    const [activeSection, setActiveSection] = useState<string | null>('highlights');
     const [selectedOptionIndex, setSelectedOptionIndex] = useState(0);
+    const [isItineraryModalVisible, setIsItineraryModalVisible] = useState(false);
 
     // Normalize ID
     const experienceId = experience ? (experience.id || experience._id || '') : '';
@@ -114,6 +119,7 @@ export default function ExperienceDetail({ visible, experience, onClose }: Props
             setChildCount(0);
             setTierCounts({ 0: 1, 1: 0, 2: 0, 3: 0, 4: 0 });
             setIsAvailabilityChecked(false);
+            setActiveSection('highlights'); // Default to highlights
             checkWishlistStatus();
 
             // Fetch full experience details
@@ -387,11 +393,11 @@ export default function ExperienceDetail({ visible, experience, onClose }: Props
                         if (bookingWidgetY > 0) {
                             if (buttonY > 0) {
                                 const absoluteButtonY = bookingWidgetY + 400 + buttonY;
-                                const isVisible = scrollY + layoutHeight >= absoluteButtonY - 10 && scrollY <= absoluteButtonY + 70;
+                                const isVisible = scrollY + layoutHeight >= absoluteButtonY + 150 && scrollY <= absoluteButtonY + 70;
                                 setIsStickyVisible(!isVisible);
                             } else {
                                 const absoluteWidgetY = bookingWidgetY + 400;
-                                const isVisible = scrollY + layoutHeight >= absoluteWidgetY - 10;
+                                const isVisible = scrollY + layoutHeight >= absoluteWidgetY + 150;
                                 setIsStickyVisible(!isVisible);
                             }
                         }
@@ -452,52 +458,71 @@ export default function ExperienceDetail({ visible, experience, onClose }: Props
                     </View>
 
                     {/* CONTENT SECTION */}
-                    <View className="px-5 pt-6 pb-2">
-                        {/* ORIGINALS BADGE */}
-                        {displayExp.isOriginal ? (
-                            <Text className="text-red-600 dark:text-red-500 font-extrabold tracking-wider text-[10px] uppercase mb-2">
-                                ORIGINALS BY TRAVELLERS DEAL
-                            </Text>
-                        ) : (
-                            <Text className="text-gray-500 dark:text-gray-400 font-bold tracking-widest uppercase text-[10px] mb-2">
-                                {displayExp.category}
-                            </Text>
-                        )}
-
+                    <View className="px-5 pt-6 pb-2 items-center">
                         {/* TITLE */}
-                        <View className="flex-row items-center gap-x-4 mb-4">
-                                <View className="flex-row items-center">
-                                    <Ionicons name="star" size={18} color="#F59E0B" />
-                                    <Text className="text-gray-900 dark:text-white font-black text-sm ml-1.5">{displayExp.averageRating || displayExp.rating || 'New'}</Text>
-                                    <Text className="text-gray-500 dark:text-gray-400 text-sm ml-1">({displayExp.numReviews || displayExp.reviewsCount || 0} reviews)</Text>
-                                </View>
-
-                                {(typeof displayExp.location === 'object' ? displayExp.location?.city : displayExp.location) && (
-                                    <View className="flex-row items-center">
-                                        <Ionicons name="location" size={16} color="#6b7280" />
-                                        <Text className="text-gray-600 dark:text-gray-400 text-sm ml-1 font-medium">
-                                            {typeof displayExp.location === 'object' ? displayExp.location?.city : displayExp.location}
-                                        </Text>
-                                    </View>
-                                )}
-                            </View>
-                        <Text className="text-gray-900 dark:text-white font-extrabold text-[28px] leading-tight flex-wrap">
+                        <Text 
+                            style={{ fontFamily: 'Outfit_900Black', fontSize: 24, lineHeight: 30 }}
+                            className="text-[#1a2b49] dark:text-white text-center mb-4"
+                        >
                             {displayExp.title}
                         </Text>
-                        {displayExp.certified && (
-                                        <View className="flex-row items-center mt-1">
-                                            <Ionicons name="checkmark-circle" size={16} color="#10b981" />
-                                            <Text className="text-green-600 dark:text-green-400 text-xs font-bold ml-1 uppercase tracking-wider">Certified by Travellers Deal</Text>
-                                        </View>
-                                    )}
+
+                        {/* RATING & BADGES ROW */}
+                        <View className="flex-row flex-wrap items-center justify-center gap-x-3 gap-y-2 mb-4">
+                            {displayExp.isOriginal ? (
+                                <View className="bg-[#cc2d4a] px-2 py-1 rounded">
+                                    <Text style={{ fontFamily: 'Outfit_700Bold' }} className="text-white text-[11px] tracking-wider uppercase">
+                                        ORIGINALS
+                                    </Text>
+                                </View>
+                            ) : (
+                                <View className="bg-[#cc2d4a] px-2 py-1 rounded">
+                                    <Text style={{ fontFamily: 'Outfit_700Bold' }} className="text-white text-[11px] tracking-wider uppercase">
+                                        {displayExp.category}
+                                    </Text>
+                                </View>
+                            )}
+
+                            <View className="flex-row items-center">
+                                <Ionicons name="star" size={18} color={isDark ? "#ffffff" : "#1a2b49"} />
+                                <Text style={{ fontFamily: 'Outfit_700Bold' }} className="text-[#1a2b49] dark:text-white text-[15px] ml-1">
+                                    {displayExp.averageRating || displayExp.rating || 'New'}
+                                </Text>
+                            </View>
+
+                            <Text style={{ fontFamily: 'Outfit_600SemiBold', textDecorationLine: 'underline' }} className="text-[#1a2b49] dark:text-white text-[15px]">
+                                {displayExp.numReviews || displayExp.reviewsCount || 0} reviews
+                            </Text>
+                        </View>
+
+                        {/* LOCATION & CERTIFIED */}
+                        <View className="flex-row items-center justify-center gap-x-4 mb-4">
+                            {(typeof displayExp.location === 'object' ? displayExp.location?.city : displayExp.location) && (
+                                <View className="flex-row items-center">
+                                    <Ionicons name="location" size={16} color="#6b7280" />
+                                    <Text style={{ fontFamily: 'Outfit_500Medium' }} className="text-gray-600 dark:text-gray-400 text-[13px] ml-1">
+                                        {typeof displayExp.location === 'object' ? displayExp.location?.city : displayExp.location}
+                                    </Text>
+                                </View>
+                            )}
+
+                            {displayExp.certified && (
+                                <View className="flex-row items-center">
+                                    <Ionicons name="checkmark-circle" size={16} color="#10b981" />
+                                    <Text style={{ fontFamily: 'Outfit_600SemiBold' }} className="text-green-600 dark:text-green-400 text-[12px] ml-1 uppercase tracking-wider">
+                                        Certified
+                                    </Text>
+                                </View>
+                            )}
+                        </View>
+
+                        {/* SHORT DESCRIPTION */}
                         {displayExp.shortDescription && (
-                            <Text className="text-gray-700 dark:text-gray-300 text-base leading-relaxed mt-4 font-medium">
+                            <Text style={{ fontFamily: 'Outfit_500Medium' }} className="text-[#1a2b49] dark:text-gray-300 text-[15px] leading-6 text-center mt-2">
                                 {displayExp.shortDescription}
                             </Text>
                         )}
                     </View>
-
-                    <View className="h-[1px] bg-gray-200 dark:bg-gray-800 my-6" />
 
                     <View className="px-5">
                         {loadingDetails ? (
@@ -521,14 +546,6 @@ export default function ExperienceDetail({ visible, experience, onClose }: Props
                                         )}
                                     </ScrollView>
 
-                        {/* ABOUT THIS ACTIVITY */}
-                        <TouchableOpacity onPress={() => setActiveSection(activeSection === 'about' ? null : 'about')} className="flex-row items-center justify-between mb-5">
-                            <Text className="text-gray-900 dark:text-white font-extrabold text-[22px]">About this activity</Text>
-                            <Ionicons name={activeSection === 'about' ? "chevron-up" : "chevron-down"} size={24} color="#1a2b49" className="dark:text-white" style={{ color: undefined }} />
-                        </TouchableOpacity>
-
-                        {activeSection === 'about' && (
-                            <View>
                                 <View className="flex-row items-start mb-4">
                             <Ionicons name="calendar-outline" size={24} color="#1a2b49" className="dark:text-white mr-4" style={{ color: undefined }} />
                             <View className="flex-1">
@@ -608,83 +625,89 @@ export default function ExperienceDetail({ visible, experience, onClose }: Props
                                 </View>
                             </View>
                         )}
-                            </View>
-                        )}
-
-                        <View className="h-[1px] bg-gray-200 dark:bg-gray-800 my-6" />
-
-                        {/* EXPERIENCE */}
-                        <TouchableOpacity onPress={() => setActiveSection(activeSection === 'experience' ? null : 'experience')} className="flex-row items-center justify-between mb-6">
-                            <Text className="text-gray-900 dark:text-white font-extrabold text-[22px]">Experience</Text>
-                            <Ionicons name={activeSection === 'experience' ? "chevron-up" : "chevron-down"} size={24} color="#1a2b49" className="dark:text-white" style={{ color: undefined }} />
-                        </TouchableOpacity>
-
-                        {activeSection === 'experience' && (
-                            <View>
                         {/* HIGHLIGHTS */}
                         {displayExp.highlights && displayExp.highlights.length > 0 && (
-                            <View className="mb-6">
-                                <Text className="text-gray-900 dark:text-white font-bold text-lg mb-3">Highlights</Text>
-                                {displayExp.highlights.map((item: any, i: number) => (
-                                    <View key={i} className="flex-row items-start mb-2 pl-1">
-                                        <View className="w-1.5 h-1.5 rounded-full bg-gray-500 dark:bg-gray-400 mt-2.5 mr-3" />
-                                        <Text className="text-gray-700 dark:text-gray-300 flex-1 leading-6">{item}</Text>
-                                    </View>
-                                ))}
-                            </View>
-                        )}
-
-                        {/* FULL DESCRIPTION */}
-                        <View className="mb-6">
-                            <Text className="text-gray-900 dark:text-white font-bold text-lg mb-3">Full description</Text>
-                            <Text className="text-gray-700 dark:text-gray-300 leading-6">
-                                {displayExp.description || displayExp.shortDescription || "No description available."}
-                            </Text>
-                        </View>
-
-                        {/* INCLUDES / EXCLUDES */}
-                        {(displayExp.includes && displayExp.includes.length > 0) || (displayExp.excludes && displayExp.excludes.length > 0) ? (
-                            <View className="mb-6">
-                                {displayExp.includes && displayExp.includes.length > 0 && (
-                                    <View>
-                                        <Text className="text-gray-900 dark:text-white font-bold text-lg mb-4">Includes</Text>
-                                        <View className="flex-row flex-wrap">
-                                            {displayExp.includes.map((item: any, i: number) => (
-                                                <View key={i} className="w-[50%] flex-row items-start mb-3 pr-2">
-                                                    <Ionicons name="checkmark" size={20} color="#10b981" className="mr-2" />
-                                                    <Text className="text-gray-700 dark:text-gray-300 flex-1 text-sm">{item}</Text>
-                                                </View>
-                                            ))}
-                                        </View>
-                                    </View>
-                                )}
-                                {displayExp.excludes && displayExp.excludes.length > 0 && (
-                                    <View className="mt-4">
-                                        <Text className="text-gray-900 dark:text-white font-bold text-lg mb-3">Not included</Text>
-                                        {displayExp.excludes.map((item: any, i: number) => (
+                            <View>
+                                <View className="h-[1px] bg-gray-200 dark:bg-gray-800 -mx-5" />
+                                <TouchableOpacity onPress={() => setActiveSection(activeSection === 'highlights' ? null : 'highlights')} className="flex-row items-center justify-between py-3">
+                                    <Text style={{ fontFamily: 'Outfit_700Bold', fontSize: 18, color: isDark ? '#ffffff' : '#1a2b49' }}>Highlights</Text>
+                                    <Ionicons name={activeSection === 'highlights' ? "chevron-up" : "chevron-down"} size={22} color={isDark ? "#ffffff" : "#1a2b49"} />
+                                </TouchableOpacity>
+                                {activeSection === 'highlights' && (
+                                    <View className="mb-3">
+                                        {displayExp.highlights.map((item: any, i: number) => (
                                             <View key={i} className="flex-row items-start mb-2 pl-1">
-                                                <Ionicons name="close" size={20} color="#ef4444" className="mr-2" />
-                                                <Text className="text-gray-700 dark:text-gray-300 flex-1 text-sm">{item}</Text>
+                                                <View className="w-1.5 h-1.5 rounded-full bg-gray-500 dark:bg-gray-400 mt-2.5 mr-3" />
+                                                <Text style={{ fontFamily: 'Outfit_400Regular' }} className="text-gray-700 dark:text-gray-300 flex-1 leading-6">{item}</Text>
                                             </View>
                                         ))}
                                     </View>
                                 )}
                             </View>
-                        ) : null}
-                            </View>
                         )}
 
-                        <View className="h-[1px] bg-gray-200 dark:bg-gray-800 my-6" />
+                        {/* FULL DESCRIPTION */}
+                        <View>
+                            {displayExp.highlights && displayExp.highlights.length > 0 && <View className="h-[1px] bg-gray-200 dark:bg-gray-800 -mx-5" />}
+                            <TouchableOpacity onPress={() => setActiveSection(activeSection === 'description' ? null : 'description')} className="flex-row items-center justify-between py-3">
+                                <Text style={{ fontFamily: 'Outfit_700Bold', fontSize: 18, color: isDark ? '#ffffff' : '#1a2b49' }}>Full description</Text>
+                                <Ionicons name={activeSection === 'description' ? "chevron-up" : "chevron-down"} size={22} color={isDark ? "#ffffff" : "#1a2b49"} />
+                            </TouchableOpacity>
+                            {activeSection === 'description' && (
+                                <View className="mb-3">
+                                    <Text style={{ fontFamily: 'Outfit_400Regular' }} className="text-gray-700 dark:text-gray-300 leading-6">
+                                        {displayExp.description || displayExp.shortDescription || "No description available."}
+                                    </Text>
+                                </View>
+                            )}
+                        </View>
+
+                        {/* INCLUDES / EXCLUDES */}
+                        {(displayExp.includes && displayExp.includes.length > 0) || (displayExp.excludes && displayExp.excludes.length > 0) ? (
+                            <View>
+                                <View className="h-[1px] bg-gray-200 dark:bg-gray-800 -mx-5" />
+                                <TouchableOpacity onPress={() => setActiveSection(activeSection === 'includes' ? null : 'includes')} className="flex-row items-center justify-between py-3">
+                                    <Text style={{ fontFamily: 'Outfit_700Bold', fontSize: 18, color: isDark ? '#ffffff' : '#1a2b49' }}>Includes</Text>
+                                    <Ionicons name={activeSection === 'includes' ? "chevron-up" : "chevron-down"} size={22} color={isDark ? "#ffffff" : "#1a2b49"} />
+                                </TouchableOpacity>
+                                {activeSection === 'includes' && (
+                                    <View className="mb-3">
+                                        {displayExp.includes && displayExp.includes.length > 0 && (
+                                            <View className="flex-row flex-wrap">
+                                                {displayExp.includes.map((item: any, i: number) => (
+                                                    <View key={i} className="w-[50%] flex-row items-start mb-3 pr-2">
+                                                        <Ionicons name="checkmark" size={20} color="#10b981" className="mr-2" />
+                                                        <Text style={{ fontFamily: 'Outfit_400Regular' }} className="text-gray-700 dark:text-gray-300 flex-1 text-sm">{item}</Text>
+                                                    </View>
+                                                ))}
+                                            </View>
+                                        )}
+                                        {displayExp.excludes && displayExp.excludes.length > 0 && (
+                                            <View className="mt-2">
+                                                <Text style={{ fontFamily: 'Outfit_700Bold' }} className="text-[#1a2b49] dark:text-white text-lg mb-3">Not included</Text>
+                                                {displayExp.excludes.map((item: any, i: number) => (
+                                                    <View key={i} className="flex-row items-start mb-2 pl-1">
+                                                        <Ionicons name="close" size={20} color="#ef4444" className="mr-2" />
+                                                        <Text style={{ fontFamily: 'Outfit_400Regular' }} className="text-gray-700 dark:text-gray-300 flex-1 text-sm">{item}</Text>
+                                                    </View>
+                                                ))}
+                                            </View>
+                                        )}
+                                    </View>
+                                )}
+                            </View>
+                        ) : null}
 
                         {/* IMPORTANT INFORMATION */}
                         {(displayExp.meetingPoint || displayExp.whatToBring?.length > 0 || displayExp.knowBeforeYouGo?.length > 0 || displayExp.extraInformation?.notAllowed?.length > 0 || displayExp.extraInformation?.whatToBring?.length > 0 || displayExp.extraInformation?.knowBeforeYouGo?.length > 0 || displayExp.extraInformation?.petFriendly !== undefined) && (
-                            <>
-                                <TouchableOpacity onPress={() => setActiveSection(activeSection === 'info' ? null : 'info')} className="flex-row items-center justify-between mb-6">
-                                    <Text className="text-gray-900 dark:text-white font-extrabold text-[22px]">Important information</Text>
-                                    <Ionicons name={activeSection === 'info' ? "chevron-up" : "chevron-down"} size={24} color="#1a2b49" className="dark:text-white" style={{ color: undefined }} />
+                            <View>
+                                <View className="h-[1px] bg-gray-200 dark:bg-gray-800 -mx-5" />
+                                <TouchableOpacity onPress={() => setActiveSection(activeSection === 'info' ? null : 'info')} className="flex-row items-center justify-between py-3">
+                                    <Text style={{ fontFamily: 'Outfit_700Bold', fontSize: 18, color: isDark ? '#ffffff' : '#1a2b49' }}>Important information</Text>
+                                    <Ionicons name={activeSection === 'info' ? "chevron-up" : "chevron-down"} size={22} color={isDark ? "#ffffff" : "#1a2b49"} />
                                 </TouchableOpacity>
                                 {activeSection === 'info' && (
-                                <View className="mb-6 gap-y-6">
+                                <View className="mb-3 gap-y-4">
                                     {displayExp.meetingPoint && (
                                         <View>
                                             <View className="flex-row items-center mb-2">
@@ -761,38 +784,18 @@ export default function ExperienceDetail({ visible, experience, onClose }: Props
                                     )}
                                 </View>
                                 )}
-
-                                <View className="h-[1px] bg-gray-200 dark:bg-gray-800 my-6" />
-                            </>
+                            </View>
                         )}
 
                         {/* ITINERARY */}
                         {displayExp.itinerary && displayExp.itinerary.length > 0 && (
-                            <View className="mb-6">
-                                <TouchableOpacity onPress={() => setActiveSection(activeSection === 'itinerary' ? null : 'itinerary')} className="flex-row items-center justify-between mb-6">
-                                    <Text className="text-gray-900 dark:text-white font-extrabold text-[22px]">Itinerary</Text>
-                                    <Ionicons name={activeSection === 'itinerary' ? "chevron-up" : "chevron-down"} size={24} color="#1a2b49" className="dark:text-white" style={{ color: undefined }} />
+                            <View className="mb-4">
+                                <View className="h-[1px] bg-gray-200 dark:bg-gray-800 -mx-5 mb-4" />
+                                <Text style={{ fontFamily: 'Outfit_900Black', fontSize: 22, color: isDark ? '#ffffff' : '#1a2b49' }} className="mb-3">Itinerary</Text>
+                                <TouchableOpacity onPress={() => setIsItineraryModalVisible(true)} className="flex-row items-center justify-between py-2">
+                                    <Text style={{ fontFamily: 'Outfit_600SemiBold', fontSize: 16, color: isDark ? '#ffffff' : '#1a2b49' }}>See itinerary</Text>
+                                    <Ionicons name="chevron-forward" size={20} color={isDark ? "#ffffff" : "#1a2b49"} />
                                 </TouchableOpacity>
-
-                                {activeSection === 'itinerary' && (
-                                <View className="flex-col md:flex-row gap-6">
-                                    <View className="flex-1">
-                                        {displayExp.itinerary.map((item: any, i: number) => (
-                                            <View key={i} className="flex-row relative">
-                                                {i !== displayExp.itinerary.length - 1 && (
-                                                    <View className="absolute left-[7px] top-6 bottom-[-16px] w-[2px] bg-red-600" />
-                                                )}
-                                                <View className="w-4 h-4 rounded-full border-[3px] border-[#002b5c] dark:bg-white bg-[#002b5c] dark:border-[#58a6ff] mt-1 mr-4 z-10" />
-
-                                                <View className="flex-1 pb-6">
-                                                    <Text className="text-gray-900 dark:text-white font-bold text-base">{item.title}</Text>
-                                                    <Text className="text-gray-500 dark:text-gray-400 text-sm mt-1">{item.description}</Text>
-                                                </View>
-                                            </View>
-                                        ))}
-                                    </View>
-                                </View>
-                                )}
                             </View>
                         )}
                         </>
@@ -803,8 +806,11 @@ export default function ExperienceDetail({ visible, experience, onClose }: Props
                         <View className="h-[1px] bg-gray-200 dark:bg-gray-800 my-6" />
 
                         {/* SELECTION BOX (DARK BLUE) */}
-                        <View className="bg-[#1a2b49] rounded-2xl p-5 shadow-sm mb-4">
-                            <Text className="text-white font-extrabold text-[17px] mb-4">Select participants, date, and language</Text>
+                        <View 
+                            onLayout={(e) => setBookingWidgetY(e.nativeEvent.layout.y)}
+                            className="bg-[#1a2b49] rounded-2xl p-5 shadow-sm mb-4"
+                        >
+                            <Text className="text-white font-extrabold text-[17px] mb-4">Select participants and date</Text>
                             
                             {/* Participants Placeholder */}
                             <TouchableOpacity
@@ -839,7 +845,6 @@ export default function ExperienceDetail({ visible, experience, onClose }: Props
                                 </View>
                                 <Ionicons name="chevron-down" size={20} color="#1a2b49" />
                             </TouchableOpacity>
-
                             {/* Check Availability Button */}
                             <TouchableOpacity
                                 onPress={() => {
@@ -860,7 +865,6 @@ export default function ExperienceDetail({ visible, experience, onClose }: Props
                         {/* INLINE PAYMENT OPTIONS WIDGET */}
                         {isAvailabilityChecked && (
                             <View 
-                                onLayout={(e) => setBookingWidgetY(e.nativeEvent.layout.y)}
                                 className="bg-white dark:bg-[#1c1c1e] rounded-2xl border border-gray-200 dark:border-gray-800 p-5 shadow-sm mb-8 mt-2"
                             >
                                 {/* Starting Time Options */}
@@ -1050,8 +1054,12 @@ export default function ExperienceDetail({ visible, experience, onClose }: Props
                         </View>
                     </View>
                     <TouchableOpacity 
-                        onPress={() => setIsTicketModalVisible(true)}
-                        className="bg-[#007aff] px-6 py-3.5 rounded-full"
+                        onPress={() => {
+                            if (bookingWidgetY > 0) {
+                                scrollViewRef.current?.scrollTo({ y: bookingWidgetY + 400, animated: true });
+                            }
+                        }}
+                        className="bg-[#1a2b49] dark:bg-[#58a6ff] px-6 py-3.5 rounded-full"
                         activeOpacity={0.8}
                     >
                         <Text className="text-white font-bold text-base">Check availability</Text>
@@ -1165,6 +1173,21 @@ export default function ExperienceDetail({ visible, experience, onClose }: Props
                         </TouchableOpacity>
                     </TouchableOpacity>
                 </Modal>
+
+                <FullItineraryModal 
+                    visible={isItineraryModalVisible}
+                    onClose={() => setIsItineraryModalVisible(false)}
+                    onCheckAvailability={() => {
+                        setIsItineraryModalVisible(false);
+                        if (bookingWidgetY > 0) {
+                            setTimeout(() => {
+                                scrollViewRef.current?.scrollTo({ y: bookingWidgetY + 400, animated: true });
+                            }, 300); // slight delay for modal close animation
+                        }
+                    }}
+                    experience={displayExp}
+                    isDark={isDark}
+                />
             </View >
         </Modal >
     );

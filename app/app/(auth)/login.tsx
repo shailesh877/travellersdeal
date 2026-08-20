@@ -16,7 +16,6 @@ WebBrowser.maybeCompleteAuthSession();
 cssInterop(SafeAreaView, { className: 'style' });
 
 export default function LoginScreen() {
-    const [step, setStep] = useState(1);
     const [name, setName] = useState("");
     const [identifier, setIdentifier] = useState("");
     const [password, setPassword] = useState("");
@@ -57,8 +56,37 @@ export default function LoginScreen() {
         }
     };
 
-    const handleContinueWithEmail = () => {
-        setStep(2);
+
+
+    const handleForgotPassword = async () => {
+        if (!identifier) {
+            Alert.alert("Error", "Please enter your email address first to reset password.");
+            return;
+        }
+
+        setIsLoading(true);
+        try {
+            const response = await fetch(`${API_URL}/auth/forgotpassword`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ email: identifier }),
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                Alert.alert("Success", "Password reset email sent. Please check your inbox.");
+            } else {
+                Alert.alert("Error", data.message || "Failed to send reset email.");
+            }
+        } catch (error) {
+            console.error("Forgot Password Error:", error);
+            Alert.alert("Error", "Network request failed. Please check your connection.");
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     const handleLogin = async () => {
@@ -102,8 +130,8 @@ export default function LoginScreen() {
         <View className="flex-1 bg-black">
             {/* Background Image - Occupies top half */}
             <View className="absolute top-0 w-full h-[55%]">
-                <Image 
-                    source={{ uri: 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?q=80&w=1000' }} 
+                <Image
+                    source={{ uri: 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?q=80&w=1000' }}
                     className="w-full h-full"
                     resizeMode="cover"
                 />
@@ -115,11 +143,13 @@ export default function LoginScreen() {
 
             <SafeAreaView className="flex-1 justify-between" edges={['top', 'bottom']}>
                 {/* Header: Logo and Close Button */}
-                <View className="flex-row justify-between items-start px-5 pt-2">
-                    <Text className="text-white font-black text-2xl w-32 leading-7 uppercase tracking-tighter">
-                        TRAVELLERS{"\n"}DEAL
-                    </Text>
-                    <TouchableOpacity 
+                <View className="flex-row justify-between items-start px-2 pt-4">
+                    <Image
+                        source={require('../../assets/images/android-icon-foreground.png')}
+                        className="w-32 h-32"
+                        resizeMode="contain"
+                    />
+                    <TouchableOpacity
                         onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)')}
                         className="w-9 h-9 rounded-full border border-white items-center justify-center bg-black/20"
                     >
@@ -128,74 +158,13 @@ export default function LoginScreen() {
                 </View>
 
                 {/* Bottom Content Area */}
-                <KeyboardAvoidingView 
+                <KeyboardAvoidingView
                     behavior={Platform.OS === "ios" ? "padding" : "padding"}
                     className="w-full px-5 pb-4 mt-auto bg-black"
                 >
-                    <ScrollView bounces={false} showsVerticalScrollIndicator={false} contentContainerStyle={{flexGrow: 1, justifyContent: 'flex-end'}}>
-                        {step === 1 ? (
+                    <ScrollView bounces={false} showsVerticalScrollIndicator={false} contentContainerStyle={{ flexGrow: 1, justifyContent: 'flex-end' }}>
                             <View className="w-full">
-                                {/* Social Buttons */}
-                                <TouchableOpacity 
-                                    disabled={!request || isLoading}
-                                    onPress={() => promptAsync()}
-                                    className="bg-white rounded-full flex-row items-center justify-center py-4 mb-3"
-                                >
-                                    {isLoading ? <ActivityIndicator color="#DB4437" /> : (
-                                        <>
-                                            <Ionicons name="logo-google" size={20} color="#DB4437" />
-                                            <Text className="text-black font-bold text-base ml-2">Continue with Google</Text>
-                                        </>
-                                    )}
-                                </TouchableOpacity>
-
-                                <TouchableOpacity className="bg-white rounded-full flex-row items-center justify-center py-4 mb-5">
-                                    <Ionicons name="logo-facebook" size={20} color="#1877F2" />
-                                    <Text className="text-black font-bold text-base ml-2">Continue with Facebook</Text>
-                                </TouchableOpacity>
-
-                                {/* Divider */}
-                                <View className="flex-row items-center justify-center mb-5">
-                                    <View className="h-[1px] flex-1 bg-gray-600" />
-                                    <Text className="text-gray-400 font-medium px-4 text-sm">or</Text>
-                                    <View className="h-[1px] flex-1 bg-gray-600" />
-                                </View>
-
-                                {/* Continue with email */}
-                                <TouchableOpacity 
-                                    onPress={handleContinueWithEmail}
-                                    className="bg-white rounded-full flex-row items-center justify-center py-4 mb-5"
-                                >
-                                    <Ionicons name="mail-outline" size={20} color="#000" />
-                                    <Text className="text-black font-bold text-base ml-2">Continue with email</Text>
-                                </TouchableOpacity>
-
-                                {/* Legal Text */}
-                                <Text className="text-white text-xs leading-5 mb-5 font-medium">
-                                    Continue to log in or sign up and accept our <Text className="underline">Terms and Conditions</Text>. See our <Text className="underline">Privacy Policy</Text>.
-                                </Text>
-
-                                {/* Opt-in Switch */}
-                                <View className="bg-[#EBEBEB] rounded-xl p-4 flex-row justify-between items-center mb-2">
-                                    <Text className="text-black text-sm leading-5 flex-1 pr-4 font-medium">
-                                        Send me discounts and other offers by email. Opt out any time in your settings
-                                    </Text>
-                                    <Switch 
-                                        trackColor={{ false: "#ccc", true: "#0071eb" }}
-                                        thumbColor={"#fff"}
-                                        value={optIn}
-                                        onValueChange={setOptIn}
-                                    />
-                                </View>
-                            </View>
-                        ) : (
-                            <View className="w-full">
-                                <TouchableOpacity onPress={() => setStep(1)} className="mb-6 flex-row items-center">
-                                    <Ionicons name="arrow-back" size={24} color="white" />
-                                    <Text className="text-white ml-2 text-base font-bold">Back to email</Text>
-                                </TouchableOpacity>
-
-                                <Text className="text-white text-2xl font-bold mb-6">Enter your details</Text>
+                                <Text className="text-white text-2xl font-bold mb-6 mt-4">Enter your details</Text>
 
                                 <View className="bg-[#1A1A1A] border border-gray-600 rounded-lg mb-4">
                                     <TextInput
@@ -220,7 +189,7 @@ export default function LoginScreen() {
                                     />
                                 </View>
 
-                                <View className="bg-[#1A1A1A] border border-gray-600 rounded-lg mb-4">
+                                <View className="bg-[#1A1A1A] border border-gray-600 rounded-lg mb-2">
                                     <TextInput
                                         placeholder="Password"
                                         placeholderTextColor="#888"
@@ -231,19 +200,40 @@ export default function LoginScreen() {
                                     />
                                 </View>
 
-                                <TouchableOpacity 
+                                <TouchableOpacity onPress={handleForgotPassword} disabled={isLoading} className="mb-6 items-end">
+                                    <Text className="text-white font-medium text-sm">Forgot Password?</Text>
+                                </TouchableOpacity>
+
+                                <TouchableOpacity
                                     onPress={handleLogin}
                                     disabled={isLoading}
-                                    className="bg-white rounded-full flex-row items-center justify-center py-4 mb-10"
+                                    className="bg-white rounded-full flex-row items-center justify-center py-4 mb-6"
                                 >
                                     {isLoading ? (
                                         <ActivityIndicator color="black" />
                                     ) : (
-                                        <Text className="text-black font-bold text-base">Continue</Text>
+                                        <Text className="text-black font-bold text-base">Sign In / Sign Up</Text>
                                     )}
                                 </TouchableOpacity>
+
+                                {/* Legal Text */}
+                                <Text className="text-white text-xs leading-5 mb-5 font-medium">
+                                    Continue to log in or sign up and accept our <Text onPress={() => WebBrowser.openBrowserAsync('https://travellersdeal.com/term')} className="underline">Terms and Conditions</Text>. See our <Text onPress={() => WebBrowser.openBrowserAsync('https://travellersdeal.com/supplier-privacy-policy')} className="underline">Privacy Policy</Text>.
+                                </Text>
+
+                                {/* Opt-in Switch */}
+                                <View className="bg-[#EBEBEB] rounded-xl p-4 flex-row justify-between items-center mb-6">
+                                    <Text className="text-black text-sm leading-5 flex-1 pr-4 font-medium">
+                                        Send me discounts and other offers by email. Opt out any time in your settings
+                                    </Text>
+                                    <Switch
+                                        trackColor={{ false: "#ccc", true: "#0071eb" }}
+                                        thumbColor={"#fff"}
+                                        value={optIn}
+                                        onValueChange={setOptIn}
+                                    />
+                                </View>
                             </View>
-                        )}
                     </ScrollView>
                 </KeyboardAvoidingView>
             </SafeAreaView>

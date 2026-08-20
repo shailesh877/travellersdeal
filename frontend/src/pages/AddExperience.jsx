@@ -4,6 +4,45 @@ import axios from 'axios';
 import { API_URL } from '../config/api';
 import { AuthContext } from '../context/AuthContext';
 import { FaInfoCircle, FaChevronDown, FaCheckCircle, FaChevronUp, FaSearch, FaTimes, FaMapMarkerAlt, FaCloudUploadAlt, FaTrash, FaImage, FaCheck, FaArrowLeft, FaPen, FaLanguage, FaFileUpload, FaBars } from 'react-icons/fa';
+import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
+import markerIcon from 'leaflet/dist/images/marker-icon.png';
+import markerShadow from 'leaflet/dist/images/marker-shadow.png';
+
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+    iconUrl: markerIcon,
+    iconRetinaUrl: markerIcon2x,
+    shadowUrl: markerShadow,
+});
+
+const LocationPicker = ({ position, setPosition }) => {
+    useMapEvents({
+        click(e) {
+            setPosition(e.latlng);
+        },
+    });
+    return position ? <Marker position={position} /> : null;
+};
+
+const AutoSearchLocation = ({ searchTitle }) => {
+    const map = useMapEvents({});
+    useEffect(() => {
+        if (searchTitle && searchTitle.trim().length > 2) {
+            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchTitle)}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data && data.length > 0) {
+                        map.flyTo([parseFloat(data[0].lat), parseFloat(data[0].lon)], 13);
+                    }
+                })
+                .catch(err => console.error("Geocoding failed", err));
+        }
+    }, [searchTitle, map]);
+    return null;
+};
 
 const LANGUAGES = [
     "Abkhazian", "Afar", "Afrikaans", "Albanian", "Amharic", "Arabic", "Armenian", "Assamese", "Aymara", "Azerbaijani",
@@ -41,6 +80,7 @@ const AddExperience = () => {
     const [isSearching, setIsSearching] = useState(false);
     const [keywordSearchInput, setKeywordSearchInput] = useState('');
     const [showKeywordSuggestions, setShowKeywordSuggestions] = useState(false);
+    const [activeMapStopIndex, setActiveMapStopIndex] = useState(null);
     const [inclusionsSubStep, setInclusionsSubStep] = useState('what-included');
     const [transportSearch, setTransportSearch] = useState('');
     const [transportSuggestions, setTransportSuggestions] = useState([]);
@@ -421,7 +461,7 @@ const AddExperience = () => {
     const handleAddItineraryStop = () => {
         setFormData(prev => ({
             ...prev,
-            itinerary: [...(prev.itinerary || []), { title: '', description: '' }]
+            itinerary: [...(prev.itinerary || []), { title: '', description: '', location: null }]
         }));
     };
 
@@ -4515,7 +4555,10 @@ const AddExperience = () => {
                                                     <input
                                                         type="text"
                                                         value={stop.title}
-                                                        onChange={(e) => handleItineraryChange(index, 'title', e.target.value)}
+                                                        onChange={(e) => {
+                                                            handleItineraryChange(index, 'title', e.target.value);
+                                                            if (activeMapStopIndex !== index) setActiveMapStopIndex(index);
+                                                        }}
                                                         className="w-full h-11 px-4 border border-gray-300 rounded-xl focus:border-[#0071EB] focus:ring-1 focus:ring-[#0071EB] outline-none transition-all text-sm"
                                                         placeholder="e.g. Ganges River"
                                                     />
@@ -4529,6 +4572,44 @@ const AddExperience = () => {
                                                         className="w-full h-11 px-4 border border-gray-300 rounded-xl focus:border-[#0071EB] focus:ring-1 focus:ring-[#0071EB] outline-none transition-all text-sm"
                                                         placeholder="e.g. Boat cruise, Sightseeing"
                                                     />
+                                                </div>
+                                                <div className="pt-2">
+                                                    <div className="flex items-center justify-between mb-2">
+                                                        <label className="block text-sm font-semibold text-gray-700">Location (Map)</label>
+                                                        {stop.location && stop.location.lat && (
+                                                            <span className="text-xs text-green-600 font-bold bg-green-50 px-2 py-1 rounded">Location saved</span>
+                                                        )}
+                                                    </div>
+                                                    
+                                                    {activeMapStopIndex === index ? (
+                                                        <div className="w-full h-[300px] border border-gray-300 rounded-xl overflow-hidden relative">
+                                                            <div className="absolute top-2 right-2 z-[1000] bg-white rounded-md shadow-md p-1 cursor-pointer" onClick={() => setActiveMapStopIndex(null)}>
+                                                                <FaTimes className="text-red-500" />
+                                                            </div>
+                                                            <div className="absolute top-2 left-2 z-[1000] bg-white rounded-md shadow-md px-3 py-1 text-xs font-bold text-gray-600">
+                                                                Click anywhere on the map to set pin
+                                                            </div>
+                                                            <MapContainer center={stop.location?.lat ? [stop.location.lat, stop.location.lng] : [20.5937, 78.9629]} zoom={stop.location?.lat ? 10 : 4} style={{ width: '100%', height: '100%' }}>
+                                                                <TileLayer
+                                                                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                                                                />
+                                                                {!stop.location?.lat && <AutoSearchLocation searchTitle={stop.title} />}
+                                                                <LocationPicker 
+                                                                    position={stop.location?.lat ? [stop.location.lat, stop.location.lng] : null} 
+                                                                    setPosition={(pos) => handleItineraryChange(index, 'location', { lat: pos.lat, lng: pos.lng })} 
+                                                                />
+                                                            </MapContainer>
+                                                        </div>
+                                                    ) : (
+                                                        <button 
+                                                            type="button" 
+                                                            onClick={(e) => { e.preventDefault(); setActiveMapStopIndex(index); }}
+                                                            className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
+                                                        >
+                                                            <FaMapMarkerAlt className={stop.location?.lat ? "text-[#0071EB]" : "text-gray-400"} />
+                                                            {stop.location?.lat ? 'Edit Location on Map' : 'Pick Location on Map'}
+                                                        </button>
+                                                    )}
                                                 </div>
                                             </div>
                                         </div>
@@ -4545,8 +4626,29 @@ const AddExperience = () => {
                                 {/* Navigation footer */}
                                 <div className="flex flex-wrap sm:flex-nowrap justify-end gap-3 sm:gap-4 pt-6 mt-8 sm:pt-10 sm:mt-12 border-t border-gray-100">
                                     <button className="h-9 px-6 rounded-full font-medium text-[13px] border border-gray-300 text-gray-600 hover:bg-gray-50 transition-all hover:px-7 mr-auto" onClick={() => { setSubStep('options'); window.scrollTo(0, 0); }}>Back</button>
-                                    <button className="h-9 px-6 rounded-full font-medium text-[13px] border border-[#0071EB] text-[#0071EB] hover:bg-blue-50 transition-all hover:px-7" onClick={() => handleSaveProgress(true)}>Save and exit</button>
-                                    <button className="h-9 px-7 rounded-full font-medium text-[13px] bg-[#0071EB] text-white hover:bg-blue-700 shadow-md transition-all hover:px-8" onClick={async () => { const success = await handleSaveProgress(); if (success) { setSubStep('verify'); window.scrollTo(0, 0); } }}>{loading ? 'Saving...' : 'Continue'}</button>
+                                    
+                                    {(formData.itinerary || []).some(stop => !stop.location?.lat) ? (
+                                        <div className="text-red-500 text-sm font-bold flex items-center mr-2">Please pick a location on the map for all stops</div>
+                                    ) : null}
+                                    
+                                    <button 
+                                        className={`h-9 px-6 rounded-full font-medium text-[13px] border transition-all ${((formData.itinerary || []).some(stop => !stop.location?.lat)) ? 'border-gray-200 text-gray-400 cursor-not-allowed bg-gray-50' : 'border-[#0071EB] text-[#0071EB] hover:bg-blue-50 hover:px-7'}`}
+                                        disabled={(formData.itinerary || []).some(stop => !stop.location?.lat)}
+                                        onClick={() => handleSaveProgress(true)}
+                                    >
+                                        Save and exit
+                                    </button>
+                                    
+                                    <button 
+                                        className={`h-9 px-7 rounded-full font-medium text-[13px] shadow-md transition-all ${((formData.itinerary || []).some(stop => !stop.location?.lat)) ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-[#0071EB] text-white hover:bg-blue-700 hover:px-8'}`} 
+                                        disabled={loading || (formData.itinerary || []).some(stop => !stop.location?.lat)}
+                                        onClick={async () => { 
+                                            const success = await handleSaveProgress(); 
+                                            if (success) { setSubStep('verify'); window.scrollTo(0, 0); } 
+                                        }}
+                                    >
+                                        {loading ? 'Saving...' : 'Continue'}
+                                    </button>
                                 </div>
                             </div>
                         )}

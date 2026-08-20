@@ -19,6 +19,80 @@ import {
 } from '@expo-google-fonts/outfit';
 import "../global.css";
 import "../constants/i18n";
+import { Text, TextInput, StyleSheet } from 'react-native';
+
+// --- GLOBAL FONT OVERRIDE ---
+if (!(Text as any).__isCustomRenderSet) {
+  const oldTextRender = (Text as any).render;
+  (Text as any).render = function (...args: any[]) {
+      const origin = oldTextRender.call(this, ...args);
+      if (!origin || !origin.props) return origin;
+
+      let fontFamily = 'Outfit_400Regular';
+      let newStyle = StyleSheet.flatten(origin.props.style) || {};
+      
+      // Ignore if it's already a different custom font family (like vector icons)
+      if (newStyle.fontFamily && !newStyle.fontFamily.startsWith('Outfit')) {
+           return origin; 
+      }
+
+      if (newStyle.fontWeight) {
+          const fw = String(newStyle.fontWeight);
+          if (fw === '500') fontFamily = 'Outfit_500Medium';
+          else if (fw === '600') fontFamily = 'Outfit_600SemiBold';
+          else if (fw === '700' || fw === 'bold') fontFamily = 'Outfit_700Bold';
+          else if (fw === '800' || fw === '900' || fw === 'black' || fw === 'extrabold') fontFamily = 'Outfit_900Black';
+          delete newStyle.fontWeight;
+      }
+      
+      if (newStyle.fontFamily && newStyle.fontFamily.startsWith('Outfit_')) {
+          fontFamily = newStyle.fontFamily;
+      }
+
+      newStyle.fontFamily = fontFamily;
+
+      return React.cloneElement(origin, {
+          style: newStyle
+      });
+  };
+  (Text as any).__isCustomRenderSet = true;
+}
+
+if (!(TextInput as any).__isCustomRenderSet) {
+  const oldTextInputRender = (TextInput as any).render;
+  (TextInput as any).render = function (...args: any[]) {
+      const origin = oldTextInputRender.call(this, ...args);
+      if (!origin || !origin.props) return origin;
+
+      let fontFamily = 'Outfit_400Regular';
+      let newStyle = StyleSheet.flatten(origin.props.style) || {};
+      
+      if (newStyle.fontFamily && !newStyle.fontFamily.startsWith('Outfit')) {
+           return origin; 
+      }
+
+      if (newStyle.fontWeight) {
+          const fw = String(newStyle.fontWeight);
+          if (fw === '500') fontFamily = 'Outfit_500Medium';
+          else if (fw === '600') fontFamily = 'Outfit_600SemiBold';
+          else if (fw === '700' || fw === 'bold') fontFamily = 'Outfit_700Bold';
+          else if (fw === '800' || fw === '900' || fw === 'black' || fw === 'extrabold') fontFamily = 'Outfit_900Black';
+          delete newStyle.fontWeight;
+      }
+      
+      if (newStyle.fontFamily && newStyle.fontFamily.startsWith('Outfit_')) {
+          fontFamily = newStyle.fontFamily;
+      }
+
+      newStyle.fontFamily = fontFamily;
+
+      return React.cloneElement(origin, {
+          style: newStyle
+      });
+  };
+  (TextInput as any).__isCustomRenderSet = true;
+}
+// -----------------------------
 
 const THEME_KEY = 'user-theme';
 

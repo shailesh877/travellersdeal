@@ -2,10 +2,31 @@ import React, { useState, useEffect, useContext } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { API_URL } from '../config/api';
-import { FaStar, FaMapMarkerAlt, FaClock, FaCheck, FaInfoCircle, FaCalendarAlt, FaUserFriends, FaGlobe, FaMobileAlt, FaTimes, FaUtensils, FaHeart, FaShoppingCart, FaBus, FaUserTie, FaMapSigns, FaTag, FaChevronDown } from 'react-icons/fa';
+import { FaStar, FaMapMarkerAlt, FaClock, FaCheck, FaInfoCircle, FaCalendarAlt, FaUserFriends, FaGlobe, FaMobileAlt, FaTimes, FaUtensils, FaHeart, FaShoppingCart, FaBus, FaUserTie, FaMapSigns, FaTag, FaChevronDown, FaExpand, FaCompress } from 'react-icons/fa';
 import { AuthContext } from '../context/AuthContext';
 import { CartContext } from '../context/CartContext';
+import { MapContainer, TileLayer, Marker, Popup, Polyline, Tooltip } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
+import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
+import markerIcon from 'leaflet/dist/images/marker-icon.png';
+import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+    iconUrl: markerIcon,
+    iconRetinaUrl: markerIcon2x,
+    shadowUrl: markerShadow,
+});
+
+const createCustomIcon = (color, index) => {
+    return L.divIcon({
+        className: 'custom-leaflet-icon',
+        html: `<div style="background-color: ${color}; width: 28px; height: 28px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 13px;">${index}</div>`,
+        iconSize: [28, 28],
+        iconAnchor: [14, 14]
+    });
+};
 
 const ExperienceDetail = () => {
     const { id } = useParams();
@@ -21,9 +42,11 @@ const ExperienceDetail = () => {
     const [error, setError] = useState('');
     const [participantCounts, setParticipantCounts] = useState({
         'Adult': 1, 'Infant': 0, 'Child': 0, 'Youth': 0, 'Senior': 0,
-        'Student (with ID)': 0, 'Student EU Citizens (with ID)': 0, 
+        'Student (with ID)': 0, 'Student EU Citizens (with ID)': 0,
         'Military (with ID)': 0, 'EU Citizens (with ID)': 0
     });
+    const [showBookingModal, setShowBookingModal] = useState(false);
+    const [isMapFullScreen, setIsMapFullScreen] = useState(false);
     const [showTicketModal, setShowTicketModal] = useState(false);
     const [date, setDate] = useState('');
     const [timeSlot, setTimeSlot] = useState('');
@@ -40,6 +63,7 @@ const ExperienceDetail = () => {
     const [availability, setAvailability] = useState({});
     const [fetchingAvailability, setFetchingAvailability] = useState(false);
     const [isAvailabilityChecked, setIsAvailabilityChecked] = useState(false);
+    const [mapCenter, setMapCenter] = useState(null);
 
     const calculateTotalAndTiers = (opt, pCounts) => {
         let total = 0;
@@ -60,12 +84,12 @@ const ExperienceDetail = () => {
         Object.entries(pCounts).forEach(([type, count]) => {
             if (count > 0) {
                 totalQty += count;
-                
+
                 let matchIdx = tiers.findIndex(t => t.title?.toLowerCase()?.includes(type.toLowerCase()));
                 if (matchIdx === -1 && type === 'Adult') matchIdx = tiers.findIndex(t => t.title?.toLowerCase()?.includes('adult'));
                 if (matchIdx === -1 && type === 'Child') matchIdx = tiers.findIndex(t => t.title?.toLowerCase()?.includes('child'));
                 if (matchIdx === -1 && type === 'Infant') matchIdx = tiers.findIndex(t => t.title?.toLowerCase()?.includes('infant'));
-                
+
                 if (matchIdx === -1) {
                     matchIdx = tiers.findIndex(t => t.title?.toLowerCase()?.includes('adult'));
                     if (matchIdx === -1) matchIdx = 0;
@@ -124,6 +148,25 @@ const ExperienceDetail = () => {
         }
     }, [date, id]);
 
+    useEffect(() => {
+        if (experience) {
+            if (experience.location?.coordinates?.lat !== undefined && experience.location?.coordinates?.lng !== undefined) {
+                setMapCenter([experience.location.coordinates.lat, experience.location.coordinates.lng]);
+            } else if (experience.location?.city) {
+                // Strictly use only city for geocoding as requested
+                const locStr = experience.location.city;
+                fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(locStr)}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data && data.length > 0) {
+                            setMapCenter([parseFloat(data[0].lat), parseFloat(data[0].lon)]);
+                        }
+                    })
+                    .catch(err => console.error("Geocoding failed", err));
+            }
+        }
+    }, [experience]);
+
     const handleReviewSubmit = async (e) => {
         e.preventDefault();
         if (!user) return alert('Please login to review');
@@ -181,7 +224,7 @@ const ExperienceDetail = () => {
             setSelectedOptionIndex(optIndex);
             if (opt?.availabilityAndPricing) {
                 currency = opt.availabilityAndPricing.currency || currency;
-                
+
                 const { total, computedTierCountsObj, totalQty } = calculateTotalAndTiers(opt, participantCounts);
                 totalAmount = total;
                 totalSlots = totalQty;
@@ -230,7 +273,7 @@ const ExperienceDetail = () => {
 
         let totalAmount = 0;
         let totalSlots = 0;
-        
+
         if (experience.bookingOptions?.length > 0) {
             const opt = experience.bookingOptions[optIndex];
             const { total, totalQty } = calculateTotalAndTiers(opt, participantCounts);
@@ -264,7 +307,7 @@ const ExperienceDetail = () => {
         if (result.success) {
             setCartMsg('Added to cart!');
             setTimeout(() => setCartMsg(''), 3000);
-            handleNavigateToCheckout(optIndex);
+            NavigateToCheckout(optIndex);
         } else {
             alert(result.error);
         }
@@ -348,10 +391,10 @@ const ExperienceDetail = () => {
                     <div className="flex overflow-x-auto gap-4 h-[300px] md:h-[400px] rounded-2xl snap-x snap-mandatory hide-scrollbar">
                         {(experience.images?.length > 0 ? experience.images : ['https://placehold.co/800x600?text=No+Image']).map((img, idx) => (
                             <div key={idx} className="shrink-0 w-[85%] md:w-[60%] h-full relative cursor-pointer snap-center rounded-2xl overflow-hidden group">
-                                <img 
-                                    src={img.startsWith('http') ? img : `${API_URL.replace('/api', '')}${img}`} 
-                                    alt={`${experience.title} ${idx + 1}`} 
-                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                                <img
+                                    src={img.startsWith('http') ? img : `${API_URL.replace('/api', '')}${img}`}
+                                    alt={`${experience.title} ${idx + 1}`}
+                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                                 />
                             </div>
                         ))}
@@ -513,14 +556,14 @@ const ExperienceDetail = () => {
                                     const pricing = opt.availabilityAndPricing;
                                     const isSelected = selectedOptionIndex === index;
                                     return (
-                                        <div 
+                                        <div
                                             key={index}
-                                            onClick={() => setSelectedOptionIndex(index)} 
+                                            onClick={() => setSelectedOptionIndex(index)}
                                             className={`min-w-[320px] max-w-[320px] cursor-pointer flex-shrink-0 border rounded-2xl p-5 bg-white flex flex-col transition-all ${isSelected ? 'border-blue-600 shadow-md ring-1 ring-blue-600' : 'border-gray-200 shadow-sm hover:border-gray-400'}`}
                                         >
                                             <h3 className="font-bold text-gray-900 text-lg mb-2 line-clamp-2">{opt.optionSetup?.title}</h3>
                                             <p className="text-sm text-gray-600 mb-4 line-clamp-3 flex-grow">{opt.optionSetup?.description}</p>
-                                            
+
                                             <div className="flex justify-between items-end mt-auto pt-4 border-t border-gray-100">
                                                 <div>
                                                     <div className="text-xs text-gray-500 font-medium">Total price</div>
@@ -555,7 +598,7 @@ const ExperienceDetail = () => {
                                                 {experience.bookingOptions[selectedOptionIndex].optionSetup?.languages?.length > 0 && <li><span className="font-medium text-gray-900">Guide:</span> {experience.bookingOptions[selectedOptionIndex].optionSetup.languages.join(', ')}</li>}
                                                 {experience.bookingOptions[selectedOptionIndex].availabilityAndPricing?.capacity && <li><span className="font-medium text-gray-900">Capacity:</span> {experience.bookingOptions[selectedOptionIndex].availabilityAndPricing.capacity}</li>}
                                             </ul>
-                                            
+
                                             {experience.bookingOptions[selectedOptionIndex].availabilityAndPricing?.pricingTiers?.length > 0 && (
                                                 <>
                                                     <h4 className="font-bold text-sm text-gray-800 flex items-center gap-2 mb-3 mt-6"><FaTag className="text-primary" /> Pricing Tiers</h4>
@@ -601,29 +644,111 @@ const ExperienceDetail = () => {
                     {displayItinerary.length > 0 && (
                         <section className="pt-8 border-t border-gray-100 mt-8">
                             <h2 className="text-2xl font-bold text-gray-900 mb-6">Itinerary</h2>
-                            <div className="flex flex-col md:flex-row gap-8">
+                            <div className="flex flex-col lg:flex-row gap-8">
                                 {/* Timeline Column */}
-                                <div className="flex-1">
-                                    <div className="relative">
-                                        {/* The vertical red line */}
-                                        <div className="absolute left-[11px] top-3 bottom-3 w-0.5 bg-red-500 z-0"></div>
-                                        <div className="space-y-7">
-                                            {displayItinerary.map((step, index) => (
-                                                <div key={index} className="relative flex items-start gap-5">
-                                                    <div className="flex items-center justify-center w-6 h-6 rounded-full border-2 border-white bg-[#1a2b49] shadow shrink-0 z-10 mt-0.5">
-                                                        <span className="w-2 h-2 rounded-full bg-white"></span>
+                                <div className="flex-1 lg:max-w-md">
+                                    <div className="relative pl-2">
+                                        {/* The vertical orange line */}
+                                        <div className="absolute left-[19px] top-4 bottom-4 w-[3px] bg-[#ff5533] z-0 rounded-full"></div>
+                                        <div className="space-y-8">
+                                            {displayItinerary.map((step, index) => {
+                                                const isFirst = index === 0;
+                                                const isLast = index === displayItinerary.length - 1;
+                                                const isStop = !isFirst && !isLast;
+
+                                                return (
+                                                    <div key={index} className="relative flex items-start gap-5">
+                                                        <div className={`flex items-center justify-center w-8 h-8 rounded-full border-2 border-white shadow-sm shrink-0 z-10 mt-0.5 ${isStop ? 'bg-[#1a2b49]' : 'bg-[#ff5533]'}`}>
+                                                            {isStop ? (
+                                                                <FaMapMarkerAlt className="text-white text-xs" />
+                                                            ) : (
+                                                                <span className="w-2.5 h-2.5 rounded-full bg-white"></span>
+                                                            )}
+                                                        </div>
+                                                        <div className="flex-1 mt-1">
+                                                            {isFirst && <p className="text-[13px] font-bold text-gray-500 uppercase tracking-wider mb-1">Starting Point</p>}
+                                                            {isLast && <p className="text-[13px] font-bold text-gray-500 uppercase tracking-wider mb-1">Arrive Back</p>}
+                                                            <h4 className="font-bold text-gray-900 text-[17px]">{step.title || step}</h4>
+                                                            {step.description && <p className="text-[14px] text-gray-600 mt-1">{step.description}</p>}
+                                                        </div>
                                                     </div>
-                                                    <div className="flex-1">
-                                                        <h4 className="font-bold text-gray-900 text-base">{step.title || step}</h4>
-                                                        {step.description && <p className="text-sm text-gray-600 mt-0.5">{step.description}</p>}
-                                                    </div>
-                                                </div>
-                                            ))}
+                                                );
+                                            })}
                                         </div>
                                     </div>
-                                    <div className="mt-8 flex items-start gap-4 text-sm text-gray-500">
-                                        <FaInfoCircle className="mt-1 flex-shrink-0" />
-                                        <p>For reference only. Itineraries are subject to change.</p>
+                                    <div className="mt-8 flex items-start gap-3 text-sm text-gray-500 bg-gray-50 p-4 rounded-xl">
+                                        <FaInfoCircle className="mt-0.5 flex-shrink-0 text-gray-400" />
+                                        <p>For reference only. Itineraries are subject to change depending on traffic or weather conditions.</p>
+                                    </div>
+                                </div>
+
+                                {/* Map Column */}
+                                <div className="flex-1 hidden md:block">
+                                    <div className={isMapFullScreen ? "fixed inset-0 z-[9999] bg-white" : "sticky top-32 w-full h-[550px] bg-gray-100 rounded-2xl overflow-hidden shadow-sm border border-gray-200"}>
+                                        <button 
+                                            onClick={() => setIsMapFullScreen(!isMapFullScreen)}
+                                            className="absolute top-4 right-4 z-[1000] bg-white p-2.5 rounded-md shadow-md text-gray-700 hover:text-[#0071EB] transition-colors"
+                                            title={isMapFullScreen ? "Exit Full Screen" : "View Full Screen"}
+                                        >
+                                            {isMapFullScreen ? <FaCompress size={16} /> : <FaExpand size={16} />}
+                                        </button>
+                                        
+                                        {mapCenter || (experience?.itinerary || []).some(s => s.location?.lat) ? (
+                                            <MapContainer
+                                                center={(experience?.itinerary || []).find(s => s.location?.lat)?.location ? [
+                                                    (experience?.itinerary || []).find(s => s.location?.lat).location.lat,
+                                                    (experience?.itinerary || []).find(s => s.location?.lat).location.lng
+                                                ] : mapCenter}
+                                                zoom={10}
+                                                scrollWheelZoom={isMapFullScreen}
+                                                style={{ height: '100%', width: '100%' }}
+                                            >
+                                                <TileLayer
+                                                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                                                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                                                />
+                                                {/* Route Line */}
+                                                {(experience?.itinerary || []).filter(s => s.location?.lat).length > 1 && (
+                                                    <Polyline 
+                                                        positions={(experience?.itinerary || []).filter(s => s.location?.lat).map(s => [s.location.lat, s.location.lng])} 
+                                                        pathOptions={{ color: '#0071EB', weight: 4, opacity: 0.7, dashArray: '10, 10' }}
+                                                    />
+                                                )}
+                                                
+                                                {/* Main Experience Marker if no itinerary locations */}
+                                                {(experience?.itinerary || []).filter(s => s.location?.lat).length === 0 && mapCenter && (
+                                                    <Marker position={mapCenter}>
+                                                        <Popup className="font-sans font-bold">{experience.title}</Popup>
+                                                    </Marker>
+                                                )}
+
+                                                {/* Itinerary Markers */}
+                                                {(experience?.itinerary || []).map((stop, idx) => {
+                                                    if (!stop.location?.lat) return null;
+                                                    const isFirst = idx === 0;
+                                                    const isLast = idx === (experience?.itinerary || []).length - 1;
+                                                    let color = '#0071EB'; // default blue
+                                                    if (isFirst) color = '#10B981'; // green for start
+                                                    if (isLast && (experience?.itinerary || []).length > 1) color = '#EF4444'; // red for end
+                                                    
+                                                    return (
+                                                        <Marker key={idx} position={[stop.location.lat, stop.location.lng]} icon={createCustomIcon(color, idx + 1)}>
+                                                            <Tooltip direction="top" offset={[0, -10]} opacity={1}>
+                                                                <span className="font-bold">{stop.title}</span>
+                                                            </Tooltip>
+                                                            <Popup className="font-sans">
+                                                                <div className="font-bold mb-1">{idx + 1}. {stop.title}</div>
+                                                                {stop.description && <div className="text-xs text-gray-600">{stop.description}</div>}
+                                                            </Popup>
+                                                        </Marker>
+                                                    );
+                                                })}
+                                            </MapContainer>
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center text-gray-500">
+                                                <p>Map data not available</p>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -711,7 +836,7 @@ const ExperienceDetail = () => {
                                     <div>
                                         <h4 className="font-bold text-gray-900 text-sm mb-3 flex items-center gap-2"><FaCheck className="text-gray-400" /> What to bring</h4>
                                         <ul className="list-disc list-inside text-gray-700 text-sm space-y-1.5 ml-1">
-                                            {[...(experience.whatToBring || []), ...(experience.extraInformation?.whatToBring || [])].filter((v,i,a)=>a.indexOf(v)===i && v).map((item, i) => <li key={i}>{item}</li>)}
+                                            {[...(experience.whatToBring || []), ...(experience.extraInformation?.whatToBring || [])].filter((v, i, a) => a.indexOf(v) === i && v).map((item, i) => <li key={i}>{item}</li>)}
                                         </ul>
                                     </div>
                                 )}
@@ -720,7 +845,7 @@ const ExperienceDetail = () => {
                                     <div>
                                         <h4 className="font-bold text-gray-900 text-sm mb-3 flex items-center gap-2"><FaTimes className="text-gray-400" /> Not allowed</h4>
                                         <ul className="list-disc list-inside text-gray-700 text-sm space-y-1.5 ml-1">
-                                            {[...(experience.extraInformation?.notAllowed || []), ...(experience.notSuitableFor || [])].filter((v,i,a)=>a.indexOf(v)===i && v).map((item, i) => <li key={i}>{item}</li>)}
+                                            {[...(experience.extraInformation?.notAllowed || []), ...(experience.notSuitableFor || [])].filter((v, i, a) => a.indexOf(v) === i && v).map((item, i) => <li key={i}>{item}</li>)}
                                         </ul>
                                     </div>
                                 )}
@@ -729,11 +854,11 @@ const ExperienceDetail = () => {
                                     <div>
                                         <h4 className="font-bold text-gray-900 text-sm mb-3 flex items-center gap-2"><FaInfoCircle className="text-gray-400" /> Know before you go</h4>
                                         <ul className="list-disc list-inside text-gray-700 text-sm space-y-1.5 ml-1">
-                                            {[...(experience.knowBeforeYouGo || []), ...(experience.extraInformation?.knowBeforeYouGo || [])].filter((v,i,a)=>a.indexOf(v)===i && v).map((item, i) => <li key={i}>{item}</li>)}
+                                            {[...(experience.knowBeforeYouGo || []), ...(experience.extraInformation?.knowBeforeYouGo || [])].filter((v, i, a) => a.indexOf(v) === i && v).map((item, i) => <li key={i}>{item}</li>)}
                                         </ul>
                                     </div>
                                 )}
-                                
+
                                 {experience.extraInformation?.petFriendly !== undefined && (
                                     <div>
                                         <h4 className="font-bold text-gray-900 text-sm mb-3 flex items-center gap-2"><FaInfoCircle className="text-gray-400" /> Pets</h4>
@@ -757,9 +882,9 @@ const ExperienceDetail = () => {
                             <div className="flex items-baseline gap-2">
                                 <span className="text-3xl font-extrabold text-gray-900">
                                     {currencySymbol}
-                                    {experience.bookingOptions?.[0]?.availabilityAndPricing?.pricingTiers?.find(t => t.title.toLowerCase().includes('adult'))?.price 
-                                     || experience.bookingOptions?.[0]?.availabilityAndPricing?.pricingTiers?.[0]?.price 
-                                     || experience.bookingOptions?.[0]?.availabilityAndPricing?.price || experience.price || 0}
+                                    {experience.bookingOptions?.[0]?.availabilityAndPricing?.pricingTiers?.find(t => t.title.toLowerCase().includes('adult'))?.price
+                                        || experience.bookingOptions?.[0]?.availabilityAndPricing?.pricingTiers?.[0]?.price
+                                        || experience.bookingOptions?.[0]?.availabilityAndPricing?.price || experience.price || 0}
                                 </span>
                             </div>
                             <p className="text-sm text-gray-500 font-medium mt-1">per person</p>
@@ -801,7 +926,7 @@ const ExperienceDetail = () => {
                                     required
                                 />
                             </div>
-                            
+
                             {/* Select Time */}
                             {experience.timeSlots?.length > 0 && (
                                 <div className="relative border border-gray-300 rounded-full hover:border-gray-500 hover:shadow-sm transition-all focus-within:border-blue-600 focus-within:ring-1 focus-within:ring-blue-600">
@@ -825,17 +950,16 @@ const ExperienceDetail = () => {
                             )}
                         </div>
 
-                        {/* CTA Buttons */}
                         <button
+                            disabled={!date}
                             onClick={() => {
-                                if (!date) { alert('Please select a date'); return; }
                                 if (experience.timeSlots?.length > 0 && !timeSlot) { alert('Please select a start time'); return; }
                                 setIsAvailabilityChecked(true);
                                 setTimeout(() => {
                                     document.getElementById('booking-options')?.scrollIntoView({ behavior: 'smooth' });
                                 }, 100);
                             }}
-                            className="w-full bg-[#0071eb] hover:bg-blue-600 text-white font-bold py-4 rounded-full transition-colors flex items-center justify-center"
+                            className={`w-full font-bold py-4 rounded-full transition-colors flex items-center justify-center ${date ? 'bg-[#0071eb] hover:bg-blue-600 text-white' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
                         >
                             Check availability
                         </button>
@@ -875,7 +999,7 @@ const ExperienceDetail = () => {
                                 <FaTimes className="text-gray-500" />
                             </button>
                         </div>
-                        
+
                         <div className="p-4 overflow-y-auto space-y-4">
                             {Object.entries(participantCounts).map(([type, count]) => (
                                 <div key={type} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
@@ -883,13 +1007,13 @@ const ExperienceDetail = () => {
                                         <div className="font-bold text-gray-900">{type}</div>
                                     </div>
                                     <div className="flex items-center gap-3">
-                                        <button 
+                                        <button
                                             onClick={() => setParticipantCounts(prev => ({ ...prev, [type]: Math.max(0, count - 1) }))}
                                             disabled={count <= 0}
                                             className={`w-9 h-9 rounded-full flex items-center justify-center border font-bold text-lg transition-colors ${count <= 0 ? 'border-gray-200 text-gray-300 bg-gray-50' : 'border-[#002b5c] text-[#002b5c] hover:bg-[#002b5c]/5'}`}
                                         >-</button>
                                         <span className="w-4 text-center font-bold text-gray-900">{count}</span>
-                                        <button 
+                                        <button
                                             onClick={() => setParticipantCounts(prev => ({ ...prev, [type]: count + 1 }))}
                                             className="w-9 h-9 rounded-full flex items-center justify-center border border-[#002b5c] text-[#002b5c] font-bold text-lg hover:bg-[#002b5c]/5 transition-colors"
                                         >+</button>
@@ -899,7 +1023,7 @@ const ExperienceDetail = () => {
                         </div>
 
                         <div className="p-4 border-t border-gray-100 bg-white sticky bottom-0">
-                            <button 
+                            <button
                                 onClick={() => setShowTicketModal(false)}
                                 className="w-full bg-[#002b5c] hover:bg-[#001d3d] text-white font-bold py-3.5 rounded-full transition-colors"
                             >

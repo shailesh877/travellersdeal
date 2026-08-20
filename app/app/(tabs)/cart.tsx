@@ -130,7 +130,6 @@ export default function CartScreen() {
     const taxes = Math.round(total * 0.18);
     const grandTotal = total + taxes;
 
-    // Use the first cart item's real experience for checkout
     const firstItem = cartItems[0];
     const cartSummaryExperience = firstItem ? {
         _id: firstItem.experience._id,
@@ -140,12 +139,13 @@ export default function CartScreen() {
         images: firstItem.experience.images || [],
         image: getImageUrl(firstItem.experience) || '',
         currency: firstItem.experience.currency || 'INR',
+        price: total.toString(),
         numReviews: 0,
     } : null;
 
     const renderCartItem = ({ item }: { item: CartItem }) => (
-        <TouchableOpacity 
-            activeOpacity={0.95} 
+        <TouchableOpacity
+            activeOpacity={0.95}
             onPress={() => setSelectedExperience(item.experience)}
             className="bg-white dark:bg-[#1c1c1e] rounded-3xl p-4 mb-4 border border-gray-100 dark:border-gray-800 shadow-sm"
         >

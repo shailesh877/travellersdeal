@@ -54,7 +54,7 @@ const experienceSchema = new mongoose.Schema({
         slots: Number
     }],
     highlights: [String],
-    itinerary: [{ title: String, description: String }],
+    itinerary: [{ title: String, description: String, location: { lat: Number, lng: Number } }],
     itineraryMap: { type: String, required: false },
     includes: [String],
     privateGroup: { type: Boolean, default: false },
