@@ -76,7 +76,7 @@ function App() {
               <Route path="/completion" element={<Completion />} />
               <Route path="/admin" element={<AdminDashboard />} />
               <Route path="/admin/login" element={<AdminLogin />} />
-              <Route path="/admin/id/:id" element={<AdminVendorDetails />} />
+              <Route path="/admin/vendor/:id" element={<AdminVendorDetails />} />
               <Route path="/admin/user/:id" element={<AdminUserDetails />} />
               <Route path="/admin/experience/:id" element={<AdminExperienceDetails />} />
               <Route path="/admin/testimonials" element={<AdminTestimonials />} />

@@ -224,7 +224,7 @@ export default function CartScreen() {
 
                         <TouchableOpacity
                             onPress={() => setIsBookingFlowVisible(true)}
-                            className="bg-[#002b5c] dark:bg-[#58a6ff] w-full py-5 rounded-full flex-row items-center justify-center shadow-lg mb-20"
+                            className="bg-[#002b5c] dark:bg-[#58a6ff] w-full py-5 rounded-full flex-row items-center justify-center shadow-lg"
                         >
                             <View className="flex-row items-center">
                                 <Text className="text-white font-black text-lg mr-2">Checkout</Text>

@@ -36,6 +36,8 @@ const registerUser = async (req, res) => {
                 name: user.name,
                 email: user.email,
                 role: user.role,
+                isSuperAdmin: user.isSuperAdmin,
+                adminPermissions: user.adminPermissions,
                 isVerified: user.isVerified,
                 isActive: user.isActive,
                 token: generateToken(user._id),
@@ -67,6 +69,8 @@ const loginUser = async (req, res) => {
                 name: user.name,
                 email: user.email,
                 role: user.role,
+                isSuperAdmin: user.isSuperAdmin,
+                adminPermissions: user.adminPermissions,
                 isVerified: user.isVerified,
                 isActive: user.isActive,
                 token: generateToken(user._id),
@@ -112,6 +116,8 @@ const googleLogin = async (req, res) => {
                 name: user.name,
                 email: user.email,
                 role: user.role,
+                isSuperAdmin: user.isSuperAdmin,
+                adminPermissions: user.adminPermissions,
                 token: generateToken(user._id),
             });
         } else {
@@ -130,6 +136,8 @@ const googleLogin = async (req, res) => {
                 name: user.name,
                 email: user.email,
                 role: user.role,
+                isSuperAdmin: user.isSuperAdmin,
+                adminPermissions: user.adminPermissions,
                 token: generateToken(user._id),
             });
         }
@@ -166,6 +174,8 @@ const facebookLogin = async (req, res) => {
                 name: user.name,
                 email: user.email,
                 role: user.role,
+                isSuperAdmin: user.isSuperAdmin,
+                adminPermissions: user.adminPermissions,
                 token: generateToken(user._id),
             });
         } else {
@@ -183,6 +193,8 @@ const facebookLogin = async (req, res) => {
                 name: user.name,
                 email: user.email,
                 role: user.role,
+                isSuperAdmin: user.isSuperAdmin,
+                adminPermissions: user.adminPermissions,
                 token: generateToken(user._id),
             });
         }
@@ -306,6 +318,8 @@ const continueWithEmail = async (req, res) => {
                     name: user.name,
                     email: user.email,
                     role: user.role,
+                    isSuperAdmin: user.isSuperAdmin,
+                    adminPermissions: user.adminPermissions,
                     isVerified: user.isVerified,
                     isActive: user.isActive,
                     token: generateToken(user._id),
@@ -328,6 +342,8 @@ const continueWithEmail = async (req, res) => {
                     name: user.name,
                     email: user.email,
                     role: user.role,
+                    isSuperAdmin: user.isSuperAdmin,
+                    adminPermissions: user.adminPermissions,
                     isVerified: user.isVerified,
                     isActive: user.isActive,
                     token: generateToken(user._id),

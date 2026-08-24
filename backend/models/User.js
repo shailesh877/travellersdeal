@@ -25,6 +25,13 @@ const userSchema = new mongoose.Schema({
         enum: ['traveler', 'vendor', 'admin'],
         default: 'traveler',
     },
+    isSuperAdmin: {
+        type: Boolean,
+        default: false,
+    },
+    adminPermissions: [{
+        type: String
+    }],
     provider: {
         type: String,
         required: true,

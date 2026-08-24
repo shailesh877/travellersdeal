@@ -5,7 +5,7 @@ import { API_URL } from '../config/api';
 import { Link, useLocation } from 'react-router-dom';
 import {
     FaUserCircle, FaEnvelope, FaCalendarAlt, FaHistory,
-    FaHeart, FaRegHeart, FaStar, FaMapMarkerAlt, FaTimes
+    FaHeart, FaRegHeart, FaStar, FaMapMarkerAlt, FaTimes, FaLock
 } from 'react-icons/fa';
 
 const getBasePrice = (e) => {
@@ -31,6 +31,8 @@ const UserProfile = () => {
     const initialTab = new URLSearchParams(location.search).get('tab') === 'liked' ? 'liked' : 'bookings';
     const [activeTab, setActiveTab] = useState(initialTab);
     const [selectedBooking, setSelectedBooking] = useState(null);
+    const [isSendingResetLink, setIsSendingResetLink] = useState(false);
+    const [resetLinkSent, setResetLinkSent] = useState(false);
 
     const config = { headers: { Authorization: `Bearer ${user?.token || localStorage.getItem('token')}` } };
 
@@ -79,6 +81,20 @@ const UserProfile = () => {
         }
     };
 
+    const handleSendResetLink = async () => {
+        setIsSendingResetLink(true);
+        try {
+            await axios.post(`${API_URL}/auth/forgotpassword`, { email: user.email });
+            setResetLinkSent(true);
+            alert("A password reset link has been sent to your email.");
+        } catch (err) {
+            console.error(err);
+            alert(err.response?.data?.message || "Failed to send reset link.");
+        } finally {
+            setIsSendingResetLink(false);
+        }
+    };
+
     if (!user) return (
         <div className="min-h-screen flex items-center justify-center text-gray-500">
             Please log in to view your profile.
@@ -104,10 +120,23 @@ const UserProfile = () => {
                             <h2 className="text-2xl font-bold text-gray-900 mb-1">{user.name}</h2>
                             <p className="text-sm text-gray-500 uppercase font-bold tracking-wider mb-6">{user.role}</p>
 
-                            <div className="flex items-center justify-center gap-2 text-gray-600 bg-gray-50 py-3 rounded-xl mb-6">
+                            <div className="flex items-center justify-center gap-2 text-gray-600 bg-gray-50 py-3 rounded-xl mb-3">
                                 <FaEnvelope className="text-gray-400" />
                                 <span className="text-sm font-medium">{user.email}</span>
                             </div>
+
+                            <button 
+                                onClick={handleSendResetLink}
+                                disabled={isSendingResetLink}
+                                className={`w-full flex items-center justify-center gap-2 py-2 mb-6 rounded-xl text-sm font-semibold transition-colors border ${resetLinkSent ? 'border-green-200 text-green-600 bg-green-50' : 'border-gray-200 text-gray-700 bg-white hover:bg-gray-50'}`}
+                            >
+                                {isSendingResetLink ? (
+                                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-gray-400 border-t-transparent"></div>
+                                ) : (
+                                    <FaLock className={resetLinkSent ? "text-green-500" : "text-gray-400"} />
+                                )}
+                                {isSendingResetLink ? 'Sending Link...' : resetLinkSent ? 'Link Sent to Email' : 'Change Password'}
+                            </button>
 
                             <div className="grid grid-cols-2 gap-4 text-center border-t border-gray-100 pt-6">
                                 <div>

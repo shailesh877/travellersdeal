@@ -2,8 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { API_URL } from '../config/api';
-import { FaArrowLeft, FaCheckCircle, FaBan, FaGlobe, FaEnvelope, FaBuilding, FaUser, FaUniversity } from 'react-icons/fa';
-
+import { FaArrowLeft, FaCheckCircle, FaBan, FaGlobe, FaEnvelope, FaBuilding, FaUser, FaUniversity, FaFilePdf, FaFileExcel } from 'react-icons/fa';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 const AdminVendorDetails = () => {
     const { id } = useParams();
     const navigate = useNavigate();
@@ -11,6 +13,21 @@ const AdminVendorDetails = () => {
     const [stats, setStats] = useState(null);
     const [experiences, setExperiences] = useState([]);
     const [loading, setLoading] = useState(true);
+
+    const getBasePrice = (exp) => {
+        const pricing = exp.bookingOptions?.[0]?.availabilityAndPricing;
+        if (pricing?.pricingTiers && pricing.pricingTiers.length > 0) {
+            const adultTier = pricing.pricingTiers.find(t => t.title && t.title.toLowerCase().includes('adult'));
+            if (adultTier) return adultTier.price || 0;
+            return pricing.pricingTiers[0].price || 0;
+        }
+        return exp.price || exp.adultPrice || 0;
+    };
+
+    const getCurrencySymbol = (code) => {
+        const symbols = { 'USD': '$', 'EUR': '€', 'GBP': '£', 'INR': '₹', 'AED': 'AED ', 'JPY': '¥' };
+        return symbols[code] || '$';
+    };
 
     const fetchVendorDetails = async () => {
         try {
@@ -44,6 +61,137 @@ const AdminVendorDetails = () => {
             console.error(error);
             alert('Update failed');
         }
+    };
+
+    const exportToPDF = () => {
+        if (!vendor || !stats) return;
+        const doc = new jsPDF();
+        
+        const brandName = vendor.vendorDetails?.brandName || vendor.name;
+        
+        // Header Section
+        doc.setFillColor(41, 128, 185); // Blue header
+        doc.rect(0, 0, 210, 40, 'F');
+        
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(22);
+        doc.setFont("helvetica", "bold");
+        doc.text("Vendor Performance Report", 14, 20);
+        
+        doc.setFontSize(11);
+        doc.setFont("helvetica", "normal");
+        doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 14, 30);
+        
+        // Vendor Info Box
+        doc.setTextColor(44, 62, 80);
+        doc.setFontSize(16);
+        doc.setFont("helvetica", "bold");
+        doc.text("Vendor Profile", 14, 55);
+        
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        doc.text(`Brand Name: ${brandName}`, 14, 65);
+        doc.text(`Email: ${vendor.email}`, 14, 72);
+        doc.text(`Status: ${vendor.isVerified ? 'Verified' : 'Pending'} | ${vendor.isActive ? 'Active' : 'Blocked'}`, 14, 79);
+        doc.text(`Joined Date: ${new Date(vendor.createdAt).toLocaleDateString()}`, 14, 86);
+        doc.text(`Country: ${vendor.vendorDetails?.registrationCountry || 'N/A'}`, 14, 93);
+
+        // Performance Stats Box
+        doc.setFontSize(16);
+        doc.setFont("helvetica", "bold");
+        doc.text("Business Stats", 120, 55);
+        
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        const vendorCurrencyCode = vendor.vendorDetails?.currency || 'USD';
+        doc.text(`Total Revenue: ${vendorCurrencyCode} ${(stats.totalRevenue || 0).toLocaleString()}`, 120, 65);
+        doc.text(`Total Customers: ${stats.totalCustomers || 0}`, 120, 72);
+        doc.text(`Total Bookings: ${stats.totalBookings || 0}`, 120, 79);
+        doc.text(`Live Experiences: ${stats.totalExperiences || 0}`, 120, 86);
+        
+        // Draw a separator line
+        doc.setDrawColor(200, 200, 200);
+        doc.line(14, 100, 196, 100);
+
+        if (experiences && experiences.length > 0) {
+            doc.setFontSize(14);
+            doc.setFont("helvetica", "bold");
+            doc.text("Live Experiences & Services", 14, 112);
+            
+            autoTable(doc, {
+                startY: 118,
+                head: [['Experience Title', 'Category', 'Location', 'Bookings', 'Revenue', 'Price']],
+                body: experiences.map(e => {
+                    const code = e.bookingOptions?.[0]?.availabilityAndPricing?.currency || e.currency || vendor.vendorDetails?.currency || 'USD';
+                    return [
+                        e.title,
+                        e.category,
+                        `${e.location?.city || ''}, ${e.location?.country || ''}`.replace(/^, | , $/g, ''),
+                        e.totalBookings || 0,
+                        `${code} ${(e.totalRevenue || 0).toLocaleString()}`,
+                        `${code} ${getBasePrice(e)}`
+                    ];
+                }),
+                theme: 'grid',
+                headStyles: { fillColor: [44, 62, 80], textColor: 255, fontSize: 10 },
+                bodyStyles: { fontSize: 9, textColor: 50 },
+                alternateRowStyles: { fillColor: [245, 247, 250] },
+                margin: { top: 10, left: 14, right: 14 }
+            });
+        }
+        
+        doc.save(`${brandName.replace(/ /g, '_')}_Report.pdf`);
+    };
+
+    const exportToExcel = () => {
+        if (!vendor || !stats) return;
+        const wb = XLSX.utils.book_new();
+
+        const vendorDetails = [
+            { Field: 'Name', Value: vendor.name },
+            { Field: 'Brand Name', Value: vendor.vendorDetails?.brandName || 'N/A' },
+            { Field: 'Email', Value: vendor.email },
+            { Field: 'Website', Value: vendor.vendorDetails?.website || 'N/A' },
+            { Field: 'Business Type', Value: vendor.vendorDetails?.businessType || 'N/A' },
+            { Field: 'Registration Country', Value: vendor.vendorDetails?.registrationCountry || 'N/A' },
+            { Field: 'Status', Value: vendor.isVerified ? 'Verified' : 'Pending' },
+            { Field: 'Joined Date', Value: new Date(vendor.createdAt).toLocaleDateString() },
+            { Field: 'Total Revenue', Value: `${vendor.vendorDetails?.currency || 'USD'} ${(stats.totalRevenue || 0).toLocaleString()}` },
+            { Field: 'Total Customers', Value: stats.totalCustomers || 0 },
+            { Field: 'Total Bookings', Value: stats.totalBookings || 0 },
+            { Field: 'Live Experiences', Value: stats.totalExperiences || 0 }
+        ];
+
+        if (vendor.vendorDetails?.bankDetails) {
+            const bank = vendor.vendorDetails.bankDetails;
+            vendorDetails.push({ Field: 'Bank Account Name', Value: bank.accountName });
+            vendorDetails.push({ Field: 'Bank Account Number', Value: bank.accountNumber });
+            vendorDetails.push({ Field: 'Bank Name', Value: bank.bankName });
+            vendorDetails.push({ Field: 'IFSC / Routing', Value: bank.ifscCode });
+            vendorDetails.push({ Field: 'SWIFT / BIC', Value: bank.swiftCode });
+        }
+
+        const wsDetails = XLSX.utils.json_to_sheet(vendorDetails);
+        XLSX.utils.book_append_sheet(wb, wsDetails, "Vendor Details");
+
+        if (experiences && experiences.length > 0) {
+            const expData = experiences.map(e => {
+                const code = e.bookingOptions?.[0]?.availabilityAndPricing?.currency || e.currency || vendor.vendorDetails?.currency || 'USD';
+                return {
+                    'Title': e.title,
+                    'Category': e.category,
+                    'City': e.location?.city,
+                    'Country': e.location?.country,
+                    'Total Bookings': e.totalBookings || 0,
+                    'Total Revenue': `${code} ${(e.totalRevenue || 0).toLocaleString()}`,
+                    'Base Price': `${code} ${getBasePrice(e)}`
+                };
+            });
+            const wsExp = XLSX.utils.json_to_sheet(expData);
+            XLSX.utils.book_append_sheet(wb, wsExp, "Experiences");
+        }
+
+        XLSX.writeFile(wb, `${(vendor.vendorDetails?.brandName || vendor.name).replace(/ /g, '_')}_Vendor_Report.xlsx`);
     };
 
     if (loading) return <div className="p-8 text-center">Loading details...</div>;
@@ -95,15 +243,23 @@ const AdminVendorDetails = () => {
                             {vendor.isActive ? 'Deactivate Account' : 'Activate Account'}
                         </button>
                     </div>
+                    <div className="flex gap-2 w-full md:w-auto md:ml-4 border-t md:border-t-0 pt-4 md:pt-0 mt-2 md:mt-0 md:border-l border-gray-100 md:pl-4 items-center">
+                        <button onClick={exportToPDF} className="flex items-center gap-2 bg-red-50 text-red-600 hover:bg-red-100 px-4 py-2 rounded-lg text-sm font-bold transition-colors">
+                            <FaFilePdf /> PDF
+                        </button>
+                        <button onClick={exportToExcel} className="flex items-center gap-2 bg-green-50 text-green-600 hover:bg-green-100 px-4 py-2 rounded-lg text-sm font-bold transition-colors">
+                            <FaFileExcel /> Excel
+                        </button>
+                    </div>
                 </div>
 
                 {/* Stats Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
                     {[
-                        { label: 'Total Revenue', value: `$${stats.totalRevenue.toLocaleString()}`, bg: 'bg-green-50 text-green-700' },
-                        { label: 'Total Customers', value: stats.totalCustomers, bg: 'bg-blue-50 text-blue-700' },
-                        { label: 'Bookings', value: stats.totalBookings, bg: 'bg-purple-50 text-purple-700' },
-                        { label: 'Live Experiences', value: stats.totalExperiences, bg: 'bg-orange-50 text-orange-700' },
+                        { label: 'Total Revenue', value: `${getCurrencySymbol(vendor.vendorDetails?.currency || 'USD')}${(stats.totalRevenue || 0).toLocaleString()}`, bg: 'bg-green-50 text-green-700' },
+                        { label: 'Total Customers', value: stats.totalCustomers || 0, bg: 'bg-blue-50 text-blue-700' },
+                        { label: 'Bookings', value: stats.totalBookings || 0, bg: 'bg-purple-50 text-purple-700' },
+                        { label: 'Live Experiences', value: stats.totalExperiences || 0, bg: 'bg-orange-50 text-orange-700' },
                     ].map((s, i) => (
                         <div key={i} className={`p-6 rounded-xl border border-gray-100 ${s.bg}`}>
                             <p className="text-sm font-bold opacity-70 uppercase">{s.label}</p>
@@ -225,10 +381,21 @@ const AdminVendorDetails = () => {
                                         <div className="flex-grow">
                                             <h4 className="font-bold text-gray-900 group-hover:text-primary transition-colors">{exp.title}</h4>
                                             <p className="text-sm text-gray-500 line-clamp-1">{exp.description}</p>
-                                            <div className="flex gap-3 mt-2 text-xs">
+                                            <div className="flex gap-3 mt-2 text-xs items-center">
                                                 <span className="font-medium text-primary bg-primary/10 px-2 py-0.5 rounded">{exp.category}</span>
                                                 <span className="text-gray-500">{exp.location.city}, {exp.location.country}</span>
-                                                <span className="font-bold text-gray-700 ml-auto">${exp.adultPrice || 0}</span>
+                                                <div className="ml-auto flex items-center gap-4">
+                                                    {(() => {
+                                                        const sym = getCurrencySymbol(exp.bookingOptions?.[0]?.availabilityAndPricing?.currency || exp.currency || vendor?.vendorDetails?.currency);
+                                                        return (
+                                                            <>
+                                                                <span className="text-gray-500 font-medium">Bookings: <strong className="text-gray-900">{exp.totalBookings || 0}</strong></span>
+                                                                <span className="text-gray-500 font-medium">Revenue: <strong className="text-green-600">{sym}{(exp.totalRevenue || 0).toLocaleString()}</strong></span>
+                                                                <span className="font-bold text-gray-700 text-sm ml-2">{sym}{getBasePrice(exp)}</span>
+                                                            </>
+                                                        );
+                                                    })()}
+                                                </div>
                                             </div>
                                         </div>
                                     </div>

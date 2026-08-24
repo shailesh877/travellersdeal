@@ -21,9 +21,12 @@ const {
     deleteTestimonial,
     getAppSettings,
     updateAppSettings,
+    getAdmins,
+    createAdmin,
+    updateAdmin
 } = require('../controllers/adminController');
 
-const { protect, admin } = require('../middleware/authMiddleware');
+const { protect, admin, superAdmin } = require('../middleware/authMiddleware');
 
 router.get('/stats', protect, admin, getAdminStats);
 router.get('/users', protect, admin, getAllUsers);
@@ -49,5 +52,10 @@ router.delete('/testimonials/:id', protect, admin, deleteTestimonial);
 // App Settings (Store Links) — public GET, admin PUT
 router.get('/settings', getAppSettings);               // public — app & website can call this
 router.put('/settings', protect, admin, updateAppSettings);
+
+// Admin Management — SuperAdmin only
+router.get('/admins', protect, superAdmin, getAdmins);
+router.post('/admins', protect, superAdmin, createAdmin);
+router.put('/admins/:id', protect, superAdmin, updateAdmin);
 
 module.exports = router;

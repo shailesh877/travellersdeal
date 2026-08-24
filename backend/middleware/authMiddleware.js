@@ -45,6 +45,14 @@ const admin = (req, res, next) => {
     }
 };
 
+const superAdmin = (req, res, next) => {
+    if (req.user && req.user.role === 'admin' && req.user.isSuperAdmin) {
+        next();
+    } else {
+        res.status(401).json({ message: 'Not authorized as a Super Admin' });
+    }
+};
+
 const vendor = (req, res, next) => {
     if (req.user && (req.user.role === 'vendor' || req.user.role === 'admin')) {
         next();
@@ -72,4 +80,4 @@ const protectOptional = async (req, res, next) => {
     next();
 };
 
-module.exports = { protect, admin, vendor, protectOptional };
+module.exports = { protect, admin, superAdmin, vendor, protectOptional };

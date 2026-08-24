@@ -2,7 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import { API_URL } from '../config/api';
-import { FaArrowLeft, FaCheckCircle, FaBan, FaEnvelope, FaCalendarAlt, FaMapMarkerAlt, FaStar, FaEdit, FaTrash, FaPlus, FaTimes } from 'react-icons/fa';
+import { FaArrowLeft, FaCheckCircle, FaBan, FaEnvelope, FaCalendarAlt, FaMapMarkerAlt, FaStar, FaEdit, FaTrash, FaPlus, FaTimes, FaFilePdf, FaFileExcel } from 'react-icons/fa';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 
 const AdminUserDetails = () => {
     const { id } = useParams();
@@ -94,6 +97,110 @@ const AdminUserDetails = () => {
         } catch (e) { alert(e?.response?.data?.message || 'Failed to add review'); } finally { setReviewLoading(false); }
     };
 
+    const exportUserPDF = () => {
+        if (!user) return;
+        const doc = new jsPDF();
+        doc.setFontSize(16);
+        doc.text(`User Report: ${user.name}`, 14, 20);
+        
+        doc.setFontSize(12);
+        doc.text(`Email: ${user.email}`, 14, 30);
+        doc.text(`Role: ${user.role.toUpperCase()}`, 14, 38);
+        doc.text(`Status: ${user.isActive ? 'Active' : 'Blocked'}`, 14, 46);
+        doc.text(`Joined: ${new Date(user.createdAt).toLocaleDateString()}`, 14, 54);
+
+        if (stats) {
+            doc.text(`Total Spent: ${formatPrice(stats.totalSpent)}`, 110, 30);
+            doc.text(`Total Bookings: ${stats.totalBookings}`, 110, 38);
+            doc.text(`Active Bookings: ${stats.activeBookings}`, 110, 46);
+            doc.text(`Total Reviews: ${stats.totalReviews ?? reviews.length}`, 110, 54);
+        }
+
+        if (bookings && bookings.length > 0) {
+            autoTable(doc, {
+                startY: 65,
+                head: [['Booking ID', 'Experience', 'Date', 'Status', 'Payment', 'Price']],
+                body: bookings.map(b => [
+                    b._id.substring(18).toUpperCase(),
+                    b.experience?.title || 'Unknown',
+                    new Date(b.date).toLocaleDateString(),
+                    b.status.toUpperCase(),
+                    b.paymentStatus.toUpperCase(),
+                    formatPrice(b.totalPrice)
+                ]),
+                theme: 'grid',
+                headStyles: { fillColor: [41, 128, 185] }
+            });
+        }
+
+        const finalY = doc.lastAutoTable ? doc.lastAutoTable.finalY : 65;
+        
+        if (reviews && reviews.length > 0) {
+            autoTable(doc, {
+                startY: finalY + 10,
+                head: [['Experience', 'Rating', 'Comment', 'Date']],
+                body: reviews.map(r => [
+                    r.experience?.title || 'Unknown',
+                    `${r.rating}/5`,
+                    r.comment,
+                    new Date(r.createdAt).toLocaleDateString()
+                ]),
+                theme: 'grid',
+                headStyles: { fillColor: [243, 156, 18] }
+            });
+        }
+
+        doc.save(`${user.name.replace(/ /g, '_')}_Details.pdf`);
+    };
+
+    const exportUserExcel = () => {
+        if (!user) return;
+        const wb = XLSX.utils.book_new();
+
+        const userDetails = [
+            { Field: 'Name', Value: user.name },
+            { Field: 'Email', Value: user.email },
+            { Field: 'Role', Value: user.role.toUpperCase() },
+            { Field: 'Status', Value: user.isActive ? 'Active' : 'Blocked' },
+            { Field: 'Joined Date', Value: new Date(user.createdAt).toLocaleDateString() },
+            { Field: 'Total Spent', Value: formatPrice(stats?.totalSpent) },
+            { Field: 'Total Bookings', Value: stats?.totalBookings || 0 },
+            { Field: 'Active Bookings', Value: stats?.activeBookings || 0 },
+            { Field: 'Total Reviews', Value: stats?.totalReviews ?? reviews.length }
+        ];
+        const wsDetails = XLSX.utils.json_to_sheet(userDetails);
+        XLSX.utils.book_append_sheet(wb, wsDetails, "User Details");
+
+        if (bookings && bookings.length > 0) {
+            const bookingsData = bookings.map(b => ({
+                'Booking ID': b._id,
+                'Experience': b.experience?.title || 'Unknown',
+                'Booked On': new Date(b.createdAt).toLocaleDateString(),
+                'Experience Date': new Date(b.date).toLocaleDateString(),
+                'Time Slot': b.timeSlot || 'Any Time',
+                'Guests': b.slots || 1,
+                'Status': b.status.toUpperCase(),
+                'Payment': b.paymentStatus.toUpperCase(),
+                'Total Paid': formatPrice(b.totalPrice)
+            }));
+            const wsBookings = XLSX.utils.json_to_sheet(bookingsData);
+            XLSX.utils.book_append_sheet(wb, wsBookings, "Bookings");
+        }
+
+        if (reviews && reviews.length > 0) {
+            const reviewsData = reviews.map(r => ({
+                'Experience': r.experience?.title || 'Unknown',
+                'Rating': `${r.rating}/5`,
+                'Comment': r.comment,
+                'Date': new Date(r.createdAt).toLocaleDateString()
+            }));
+            const wsReviews = XLSX.utils.json_to_sheet(reviewsData);
+            XLSX.utils.book_append_sheet(wb, wsReviews, "Reviews");
+        }
+
+        XLSX.writeFile(wb, `${user.name.replace(/ /g, '_')}_Details.xlsx`);
+    };
+
     if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div></div>;
 
     return (
@@ -126,7 +233,13 @@ const AdminUserDetails = () => {
                         </div>
                     </div>
 
-                    <div className="flex gap-3">
+                    <div className="flex flex-wrap gap-3 mt-4 md:mt-0 justify-end">
+                        <button onClick={exportUserPDF} className="flex items-center gap-2 bg-red-50 text-red-600 px-4 py-2 rounded-lg font-bold border border-red-200 hover:bg-red-100 transition-all shadow-sm">
+                            <FaFilePdf /> Export PDF
+                        </button>
+                        <button onClick={exportUserExcel} className="flex items-center gap-2 bg-green-50 text-green-700 px-4 py-2 rounded-lg font-bold border border-green-200 hover:bg-green-100 transition-all shadow-sm">
+                            <FaFileExcel /> Export Excel
+                        </button>
                         {user.role !== 'admin' && (
                             <button
                                 onClick={() => handleStatusUpdate(!user.isActive)}

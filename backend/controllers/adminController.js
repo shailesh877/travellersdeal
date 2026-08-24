@@ -4,6 +4,7 @@ const Booking = require('../models/Booking');
 const Review = require('../models/Review');
 const Testimonial = require('../models/Testimonial');
 const AppSettings = require('../models/AppSettings');
+const sendEmail = require('../utils/sendEmail');
 
 // @desc    Get Admin Dashboard Stats
 // @route   GET /api/admin/stats
@@ -78,6 +79,19 @@ const getVendorDetails = async (req, res) => {
         // Total users served (unique users who booked)
         const uniqueCustomers = new Set(bookings.map(b => b.user.toString())).size;
 
+        const experiencesWithStats = experiences.map(exp => {
+            const expBookings = bookings.filter(b => b.experience.toString() === exp._id.toString());
+            const expRevenue = expBookings
+                .filter(b => b.paymentStatus === 'paid')
+                .reduce((acc, b) => acc + b.totalPrice, 0);
+            
+            return {
+                ...exp.toObject(),
+                totalBookings: expBookings.length,
+                totalRevenue: expRevenue
+            };
+        });
+
         res.json({
             vendor,
             stats: {
@@ -86,7 +100,7 @@ const getVendorDetails = async (req, res) => {
                 totalRevenue,
                 totalCustomers: uniqueCustomers
             },
-            experiences
+            experiences: experiencesWithStats
         });
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -430,6 +444,154 @@ const updateAppSettings = async (req, res) => {
     } catch (error) { res.status(500).json({ message: error.message }); }
 };
 
+// @desc    Get all admins
+// @route   GET /api/admin/admins
+// @access  Private/SuperAdmin
+const getAdmins = async (req, res) => {
+    try {
+        const admins = await User.find({ role: 'admin' }).select('-password');
+        res.json(admins);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Create a new admin
+// @route   POST /api/admin/admins
+// @access  Private/SuperAdmin
+const createAdmin = async (req, res) => {
+    try {
+        const { name, email, password, adminPermissions } = req.body;
+
+        let adminUser = await User.findOne({ email });
+        let isNewUser = false;
+        
+        if (adminUser) {
+            if (adminUser.role === 'admin') {
+                return res.status(400).json({ message: 'Email ID is already registered as an Admin. Use Edit to change permissions.' });
+            }
+            // User exists, upgrade them to admin
+            adminUser.name = name;
+            adminUser.role = 'admin';
+            adminUser.isSuperAdmin = false;
+            adminUser.adminPermissions = adminPermissions || [];
+            adminUser.isActive = true;
+            if (password) adminUser.password = password; // pre-save will hash
+        } else {
+            // Create a new user instance (but don't save yet)
+            isNewUser = true;
+            adminUser = new User({
+                name,
+                email,
+                password,
+                role: 'admin',
+                isSuperAdmin: false,
+                adminPermissions: adminPermissions || [],
+                isVerified: true,
+                isActive: true
+            });
+        }
+
+        // Map permission IDs to readable labels for the email
+        const PERMISSIONS_LABELS = {
+            'stats': 'Dashboard',
+            'users': 'Users Management',
+            'bookings': 'Booking Ledger',
+            'content': 'Pending Experiences',
+            'rejected': 'Rejected Experiences',
+            'active-experiences': 'Active Experiences',
+            'pending': 'Pending Vendors',
+            'verified': 'Active Vendors',
+            'homepage': 'Homepage Sections',
+            'applinks': 'App Store Links',
+            'testimonials': 'Testimonials'
+        };
+
+        const readablePermissions = (adminPermissions || []).map(p => PERMISSIONS_LABELS[p] || p).join('\n- ');
+        
+        const loginUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/admin/login`;
+
+        const message = `Welcome to Travellers Deal Admin Panel!
+
+You have been added as an administrator by the Super Admin.
+Here are your login details:
+
+Name: ${name}
+Email: ${email}
+Password: ${password || '(Your existing password or one provided by Super Admin)'}
+
+You have been granted access to the following sections:
+- ${readablePermissions || 'No specific sections (Read-only or restricted)'}
+
+Please log in at: ${loginUrl}
+
+Note: For security reasons, please consider changing your password after your first login.`;
+
+        try {
+            await sendEmail({
+                email: adminUser.email,
+                subject: 'Welcome to Travellers Deal - Admin Access Granted',
+                message,
+            });
+        } catch (emailError) {
+            console.error('Failed to send welcome email to admin:', emailError);
+            return res.status(400).json({ message: 'Invalid email address or failed to send email. Admin was NOT registered.' });
+        }
+
+        // If email sent successfully, save the user to the database
+        await adminUser.save();
+
+        res.status(isNewUser ? 201 : 200).json({
+            _id: adminUser._id,
+            name: adminUser.name,
+            email: adminUser.email,
+            role: adminUser.role,
+            isSuperAdmin: adminUser.isSuperAdmin,
+            adminPermissions: adminUser.adminPermissions
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Update an admin's permissions
+// @route   PUT /api/admin/admins/:id
+// @access  Private/SuperAdmin
+const updateAdmin = async (req, res) => {
+    try {
+        const { adminPermissions, password, name, email, isActive } = req.body;
+        const adminUser = await User.findById(req.params.id);
+
+        if (!adminUser || adminUser.role !== 'admin') {
+            return res.status(404).json({ message: 'Admin not found' });
+        }
+
+        if (adminUser.isSuperAdmin && req.user._id.toString() !== adminUser._id.toString()) {
+            return res.status(403).json({ message: 'You cannot edit another Super Admin' });
+        }
+
+        if (name) adminUser.name = name;
+        if (email) adminUser.email = email;
+        if (adminPermissions) adminUser.adminPermissions = adminPermissions;
+        if (isActive !== undefined) adminUser.isActive = isActive;
+        if (password) adminUser.password = password; // Will be hashed by pre-save middleware
+
+        await adminUser.save();
+
+        res.json({
+            _id: adminUser._id,
+            name: adminUser.name,
+            email: adminUser.email,
+            role: adminUser.role,
+            isSuperAdmin: adminUser.isSuperAdmin,
+            adminPermissions: adminUser.adminPermissions,
+            isActive: adminUser.isActive
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
 module.exports = {
     getAdminStats,
     getAllVendors,
@@ -451,4 +613,7 @@ module.exports = {
     deleteTestimonial,
     getAppSettings,
     updateAppSettings,
+    getAdmins,
+    createAdmin,
+    updateAdmin
 };

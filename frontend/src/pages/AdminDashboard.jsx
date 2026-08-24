@@ -2,11 +2,16 @@ import React, { useEffect, useState } from 'react';
 import {
     FaUser, FaMoneyBillWave, FaMapMarkedAlt, FaCalendarCheck,
     FaChartLine, FaStore, FaUserClock, FaCheckCircle, FaTimesCircle,
-    FaSignOutAlt, FaHome, FaClipboardList, FaImage, FaPlus, FaTrash, FaEdit, FaStar
+    FaSignOutAlt, FaHome, FaClipboardList, FaImage, FaPlus, FaTrash, FaEdit, FaStar,
+    FaFilePdf, FaFileExcel, FaUserShield, FaCheck
 } from 'react-icons/fa';
 import axios from 'axios';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 import { API_URL } from '../config/api';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
+import AdminManagement from '../components/AdminManagement';
 
 const getBasePrice = (e) => {
     if (e.bookingOptions?.[0]?.availabilityAndPricing?.pricingTiers?.length > 0) {
@@ -36,7 +41,23 @@ const AdminDashboard = () => {
     const [loading, setLoading] = useState(true);
     const location = useLocation();
     const [activeTab, setActiveTab] = useState(location.state?.activeTab || 'stats');
+    const [searchQuery, setSearchQuery] = useState('');
+    const [filterOption, setFilterOption] = useState('all');
     const [savingSection, setSavingSection] = useState('');
+
+    const userProfile = JSON.parse(localStorage.getItem('user') || '{}');
+    const isSuperAdmin = userProfile.isSuperAdmin === true || userProfile.isSuperAdmin === undefined; // Default old admins to super
+    const adminPermissions = userProfile.adminPermissions || [];
+
+    const hasAccess = (tabId) => {
+        if (isSuperAdmin) return true;
+        return adminPermissions.includes(tabId);
+    };
+
+    useEffect(() => {
+        setSearchQuery('');
+        setFilterOption('all');
+    }, [activeTab]);
     const [savedBadge, setSavedBadge] = useState('');
 
     // Homepage Content State — draft (local edits) + committed (backend)
@@ -269,6 +290,45 @@ const AdminDashboard = () => {
         { title: 'Registered Users', value: stats.userCount, icon: <FaUser />, color: 'bg-purple-500', tab: 'users' },
     ];
 
+    // Helper function for search text matching
+    const matchesSearch = (text, query) => text?.toLowerCase().includes(query.toLowerCase());
+
+    const getFilteredUsers = () => {
+        return users.filter(u => {
+            const matchesQuery = matchesSearch(u.name, searchQuery) || matchesSearch(u.email, searchQuery);
+            const matchesFilter = filterOption === 'all' 
+                ? true 
+                : (filterOption === 'active' ? u.isActive : (filterOption === 'blocked' ? !u.isActive : u.role === filterOption));
+            return matchesQuery && matchesFilter;
+        });
+    };
+
+    const getFilteredBookings = () => {
+        return bookings.filter(b => {
+            const matchesQuery = matchesSearch(b._id, searchQuery) || matchesSearch(b.user?.name, searchQuery) || matchesSearch(b.user?.email, searchQuery) || matchesSearch(b.experience?.title, searchQuery);
+            const matchesFilter = filterOption === 'all'
+                ? true
+                : (['confirmed', 'cancelled', 'pending'].includes(filterOption) 
+                    ? b.status === filterOption 
+                    : (filterOption === 'unpaid' ? b.paymentStatus !== 'paid' : b.paymentStatus === filterOption));
+            return matchesQuery && matchesFilter;
+        });
+    };
+
+    const getFilteredExperiences = (baseList) => {
+        return baseList.filter(e => {
+            const matchesQuery = matchesSearch(e.title, searchQuery) || matchesSearch(e.location?.city, searchQuery) || matchesSearch(e.vendor?.name, searchQuery);
+            return matchesQuery;
+        });
+    };
+
+    const getFilteredVendors = (baseList) => {
+        return baseList.filter(v => {
+            const matchesQuery = matchesSearch(v.name, searchQuery) || matchesSearch(v.email, searchQuery) || matchesSearch(v.vendorDetails?.brandName, searchQuery);
+            return matchesQuery;
+        });
+    };
+
     const filteredVendors = vendors.filter(v => {
         if (activeTab === 'pending') return !v.isVerified;
         if (activeTab === 'verified') return v.isVerified;
@@ -276,7 +336,144 @@ const AdminDashboard = () => {
     });
 
     const pendingExperiences = experiences.filter(e => e.status === 'pending');
+
+    const handleExportPDF = () => {
+        const isVendorTab = ['pending', 'verified'].includes(activeTab);
+        const doc = new jsPDF({ orientation: isVendorTab ? 'landscape' : 'portrait' });
+        let head = [];
+        let body = [];
+        let title = '';
+
+        if (activeTab === 'users') {
+            title = 'Users Report';
+            head = [['Name', 'Email', 'Role', 'Status', 'Joined Date']];
+            body = getFilteredUsers().map(u => [
+                u.name,
+                u.email,
+                u.role.toUpperCase(),
+                u.isActive ? 'Active' : 'Blocked',
+                new Date(u.createdAt).toLocaleDateString()
+            ]);
+        } else if (activeTab === 'bookings') {
+            title = 'Bookings Report';
+            head = [['ID', 'Customer', 'Experience', 'Date', 'Price', 'Status', 'Payment']];
+            body = getFilteredBookings().map(b => [
+                `#${b._id.slice(-6)}`,
+                b.user?.name || 'N/A',
+                b.experience?.title || 'N/A',
+                new Date(b.date).toLocaleDateString(),
+                `${b.totalPrice}`,
+                b.status.toUpperCase(),
+                b.paymentStatus.toUpperCase()
+            ]);
+        } else if (activeTab === 'content') {
+            title = 'Pending Experiences';
+            head = [['Title', 'Vendor', 'Price', 'Location', 'Status']];
+            body = getFilteredExperiences(pendingExperiences).map(e => [
+                e.title, e.vendor?.name || 'N/A', getBasePrice(e), e.location?.city || 'N/A', 'Pending'
+            ]);
+        } else if (activeTab === 'rejected') {
+            title = 'Rejected Experiences';
+            head = [['Title', 'Vendor', 'Price', 'Location', 'Status']];
+            body = getFilteredExperiences(rejectedExperiences).map(e => [
+                e.title, e.vendor?.name || 'N/A', getBasePrice(e), e.location?.city || 'N/A', 'Rejected'
+            ]);
+        } else if (activeTab === 'active-experiences') {
+            title = 'Active Experiences';
+            head = [['Title', 'Vendor', 'Price', 'Location', 'Status']];
+            body = getFilteredExperiences(activeExperiences).map(e => [
+                e.title, e.vendor?.name || 'N/A', getBasePrice(e), e.location?.city || 'N/A', 'Active'
+            ]);
+        } else if (activeTab === 'pending') {
+            title = 'Pending Vendors';
+            head = [['Name', 'Email', 'Phone', 'Brand', 'Biz Type', 'Country', 'Joined', 'Status']];
+            body = getFilteredVendors(filteredVendors).map(v => [
+                v.name, v.email, v.phone || 'N/A', v.vendorDetails?.brandName || 'N/A', v.vendorDetails?.businessType || 'N/A', v.vendorDetails?.registrationCountry || 'N/A', new Date(v.createdAt).toLocaleDateString(), 'Pending'
+            ]);
+        } else if (activeTab === 'verified') {
+            title = 'Verified Vendors';
+            head = [['Name', 'Email', 'Phone', 'Brand', 'Biz Type', 'Country', 'Joined', 'Status']];
+            body = getFilteredVendors(filteredVendors).map(v => [
+                v.name, v.email, v.phone || 'N/A', v.vendorDetails?.brandName || 'N/A', v.vendorDetails?.businessType || 'N/A', v.vendorDetails?.registrationCountry || 'N/A', new Date(v.createdAt).toLocaleDateString(), 'Verified'
+            ]);
+        } else {
+            alert('Export is only available for list tabs.');
+            return;
+        }
+
+        doc.setFontSize(14);
+        doc.text(title, 14, 15);
+        autoTable(doc, {
+            startY: 20,
+            head: head,
+            body: body,
+            theme: 'grid',
+            styles: { fontSize: 8 }
+        });
+        doc.save(`${title.replace(/ /g, '_').toLowerCase()}.pdf`);
+    };
+
+    const handleExportExcel = () => {
+        let data = [];
+        let sheetName = 'Sheet1';
+
+        if (activeTab === 'users') {
+            sheetName = 'Users';
+            data = getFilteredUsers().map(u => ({
+                Name: u.name,
+                Email: u.email,
+                Role: u.role.toUpperCase(),
+                Status: u.isActive ? 'Active' : 'Blocked',
+                'Joined Date': new Date(u.createdAt).toLocaleDateString()
+            }));
+        } else if (activeTab === 'bookings') {
+            sheetName = 'Bookings';
+            data = getFilteredBookings().map(b => ({
+                'Booking ID': b._id,
+                Customer: b.user?.name || 'N/A',
+                'Customer Email': b.user?.email || 'N/A',
+                Experience: b.experience?.title || 'N/A',
+                Date: new Date(b.date).toLocaleDateString(),
+                Price: b.totalPrice,
+                Status: b.status.toUpperCase(),
+                Payment: b.paymentStatus.toUpperCase()
+            }));
+        } else if (['content', 'rejected', 'active-experiences'].includes(activeTab)) {
+            sheetName = 'Experiences';
+            const exps = activeTab === 'content' ? pendingExperiences : activeTab === 'rejected' ? rejectedExperiences : activeExperiences;
+            data = getFilteredExperiences(exps).map(e => ({
+                Title: e.title,
+                Vendor: e.vendor?.name || 'N/A',
+                Price: getBasePrice(e),
+                Location: e.location?.city || 'N/A',
+                Status: e.status.toUpperCase()
+            }));
+        } else if (['pending', 'verified'].includes(activeTab)) {
+            sheetName = 'Vendors';
+            data = getFilteredVendors(filteredVendors).map(v => ({
+                Name: v.name,
+                Email: v.email,
+                Phone: v.phone || 'N/A',
+                'Brand Name': v.vendorDetails?.brandName || 'N/A',
+                'Business Type': v.vendorDetails?.businessType || 'N/A',
+                Website: v.vendorDetails?.website || 'N/A',
+                Country: v.vendorDetails?.registrationCountry || 'N/A',
+                Currency: v.vendorDetails?.currency || 'N/A',
+                'Joined Date': new Date(v.createdAt).toLocaleDateString(),
+                Status: v.isVerified ? 'Verified' : 'Pending'
+            }));
+        } else {
+            alert('Export is only available for list tabs.');
+            return;
+        }
+
+        const worksheet = XLSX.utils.json_to_sheet(data);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+        XLSX.writeFile(workbook, `${sheetName.toLowerCase()}_export.xlsx`);
+    };
     const rejectedExperiences = experiences.filter(e => e.status === 'rejected');
+    const activeExperiences = experiences.filter(e => e.status === 'approved');
     const pendingVendorsCount = vendors.filter(v => !v.isVerified).length;
 
     if (loading) {
@@ -320,32 +517,53 @@ const AdminDashboard = () => {
                 </div>
 
                 <nav className="flex-1 py-6 space-y-1">
-                    <div className="px-6 pb-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">Main</div>
-                    <NavItem id="stats" icon={FaChartLine} label="Dashboard" />
+                    {hasAccess('stats') && (
+                        <>
+                            <div className="px-6 pb-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">Main</div>
+                            <NavItem id="stats" icon={FaChartLine} label="Dashboard" />
+                        </>
+                    )}
 
-                    <div className="px-6 pb-2 pt-6 text-xs font-semibold text-gray-400 uppercase tracking-wider">Management</div>
-                    <NavItem id="users" icon={FaUser} label="Users Management" />
-                    <NavItem id="bookings" icon={FaClipboardList} label="Booking Ledger" />
+                    {(hasAccess('users') || hasAccess('bookings')) && (
+                        <div className="px-6 pb-2 pt-6 text-xs font-semibold text-gray-400 uppercase tracking-wider">Management</div>
+                    )}
+                    {hasAccess('users') && <NavItem id="users" icon={FaUser} label="Users Management" />}
+                    {hasAccess('bookings') && <NavItem id="bookings" icon={FaClipboardList} label="Booking Ledger" />}
 
-                    <div className="px-6 pb-2 pt-6 text-xs font-semibold text-gray-400 uppercase tracking-wider">Experiences</div>
-                    <NavItem id="content" icon={FaCheckCircle} label="Pending Experiences" count={pendingExperiences.length} />
-                    <NavItem id="rejected" icon={FaTimesCircle} label="Rejected Experiences" count={rejectedExperiences.length} />
-                    <NavItem id="active-experiences" icon={FaMapMarkedAlt} label="Active Experiences" />
+                    {(hasAccess('content') || hasAccess('rejected') || hasAccess('active-experiences')) && (
+                        <div className="px-6 pb-2 pt-6 text-xs font-semibold text-gray-400 uppercase tracking-wider">Experiences</div>
+                    )}
+                    {hasAccess('content') && <NavItem id="content" icon={FaCheckCircle} label="Pending Experiences" count={pendingExperiences.length} />}
+                    {hasAccess('rejected') && <NavItem id="rejected" icon={FaTimesCircle} label="Rejected Experiences" count={rejectedExperiences.length} />}
+                    {hasAccess('active-experiences') && <NavItem id="active-experiences" icon={FaMapMarkedAlt} label="Active Experiences" />}
 
-                    <div className="px-6 pb-2 pt-6 text-xs font-semibold text-gray-400 uppercase tracking-wider">Partners</div>
-                    <NavItem id="pending" icon={FaUserClock} label="Pending Vendors" count={pendingVendorsCount} />
-                    <NavItem id="verified" icon={FaStore} label="Active Vendors" />
+                    {(hasAccess('pending') || hasAccess('verified')) && (
+                        <div className="px-6 pb-2 pt-6 text-xs font-semibold text-gray-400 uppercase tracking-wider">Partners</div>
+                    )}
+                    {hasAccess('pending') && <NavItem id="pending" icon={FaUserClock} label="Pending Vendors" count={pendingVendorsCount} />}
+                    {hasAccess('verified') && <NavItem id="verified" icon={FaStore} label="Active Vendors" />}
 
-                    <div className="px-6 pb-2 pt-6 text-xs font-semibold text-gray-400 uppercase tracking-wider">Content</div>
-                    <NavItem id="homepage" icon={FaImage} label="Homepage Sections" />
-                    <NavItem id="applinks" icon={FaStore} label="App Store Links" />
-                    <button
-                        onClick={() => navigate('/admin/testimonials')}
-                        className="w-full flex items-center gap-3 px-6 py-4 text-sm font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-900 transition-colors"
-                    >
-                        <FaStar className="text-lg" />
-                        <span>Testimonials</span>
-                    </button>
+                    {(hasAccess('homepage') || hasAccess('applinks') || hasAccess('testimonials')) && (
+                        <div className="px-6 pb-2 pt-6 text-xs font-semibold text-gray-400 uppercase tracking-wider">Content</div>
+                    )}
+                    {hasAccess('homepage') && <NavItem id="homepage" icon={FaImage} label="Homepage Sections" />}
+                    {hasAccess('applinks') && <NavItem id="applinks" icon={FaStore} label="App Store Links" />}
+                    {hasAccess('testimonials') && (
+                        <button
+                            onClick={() => navigate('/admin/testimonials')}
+                            className="w-full flex items-center gap-3 px-6 py-4 text-sm font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-900 transition-colors"
+                        >
+                            <FaStar className="text-lg" />
+                            <span>Testimonials</span>
+                        </button>
+                    )}
+
+                    {isSuperAdmin && (
+                        <>
+                            <div className="px-6 pb-2 pt-6 text-xs font-semibold text-gray-400 uppercase tracking-wider">Super Admin</div>
+                            <NavItem id="admins" icon={FaUserShield} label="Manage Admins" />
+                        </>
+                    )}
                 </nav>
 
                 <div className="p-4 border-t border-gray-100">
@@ -360,36 +578,94 @@ const AdminDashboard = () => {
             </aside>
 
             {/* Main Content */}
-            <main className="flex-1 overflow-x-hidden overflow-y-auto">
+            <main className="flex-1 overflow-x-hidden overflow-y-auto h-[calc(100vh-4rem)]">
                 {/* Header */}
                 <header className="bg-white shadow-sm sticky top-0 z-20 px-8 py-4 flex justify-between items-center md:hidden">
                     <div className="font-bold text-gray-800">Admin Panel</div>
                     <button className="text-gray-500"><FaClipboardList /></button>
                 </header>
 
-                <div className="p-8">
+                <div className="px-8 pb-8">
                     {/* Page Header */}
-                    <div className="mb-8">
-                        <h1 className="text-2xl font-bold text-gray-800">
-                            {activeTab === 'stats' && 'Dashboard Overview'}
-                            {activeTab === 'users' && 'Users Management'}
-                            {activeTab === 'bookings' && 'Global Booking Ledger'}
-                            {activeTab === 'content' && 'Pending Experiences'}
-                            {activeTab === 'rejected' && 'Rejected Experiences'}
-                            {activeTab === 'active-experiences' && 'Active Experiences'}
-                            {activeTab === 'pending' && 'Vendor Approval Queue'}
-                            {activeTab === 'verified' && 'Active Vendor Partners'}
-                            {activeTab === 'applinks' && '📱 App Store Links'}
-                        </h1>
-                        <p className="text-gray-500 text-sm mt-1">
-                            Welcome back, Admin. Here is what is happening today.
-                        </p>
+                    <div className="sticky top-0 z-10 bg-gray-100/50 backdrop-blur-md pt-8 pb-4 mb-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div>
+                            <h1 className="text-2xl font-bold text-gray-800">
+                                {activeTab === 'stats' && 'Dashboard Overview'}
+                                {activeTab === 'users' && 'Users Management'}
+                                {activeTab === 'bookings' && 'Global Booking Ledger'}
+                                {activeTab === 'content' && 'Pending Experiences'}
+                                {activeTab === 'rejected' && 'Rejected Experiences'}
+                                {activeTab === 'active-experiences' && 'Active Experiences'}
+                                {activeTab === 'pending' && 'Vendor Approval Queue'}
+                                {activeTab === 'verified' && 'Active Vendor Partners'}
+                                {activeTab === 'applinks' && '📱 App Store Links'}
+                                {activeTab === 'admins' && 'Manage Administrators'}
+                            </h1>
+                            <p className="text-gray-500 text-sm mt-1">
+                                Welcome back, Admin. Here is what is happening today.
+                            </p>
+                        </div>
+                        {['users', 'bookings', 'content', 'rejected', 'active-experiences', 'pending', 'verified'].includes(activeTab) && (
+                            <div className="flex flex-col sm:flex-row gap-3">
+                                <input 
+                                    type="text" 
+                                    placeholder="Search..." 
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="border border-gray-200 rounded-lg px-4 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none w-full sm:w-64"
+                                />
+                                {activeTab === 'users' && (
+                                    <select 
+                                        value={filterOption} 
+                                        onChange={(e) => setFilterOption(e.target.value)}
+                                        className="border border-gray-200 rounded-lg px-4 py-2 text-sm focus:border-blue-500 outline-none"
+                                    >
+                                        <option value="all">All Users</option>
+                                        <option value="active">Active</option>
+                                        <option value="blocked">Blocked</option>
+                                        <option value="admin">Admins</option>
+                                        <option value="vendor">Vendors</option>
+                                        <option value="traveler">Regular Users</option>
+                                    </select>
+                                )}
+                                {activeTab === 'bookings' && (
+                                    <select 
+                                        value={filterOption} 
+                                        onChange={(e) => setFilterOption(e.target.value)}
+                                        className="border border-gray-200 rounded-lg px-4 py-2 text-sm focus:border-blue-500 outline-none"
+                                    >
+                                        <option value="all">All Bookings</option>
+                                        <option value="confirmed">Confirmed</option>
+                                        <option value="pending">Pending</option>
+                                        <option value="cancelled">Cancelled</option>
+                                        <option value="paid">Paid</option>
+                                        <option value="unpaid">Unpaid</option>
+                                    </select>
+                                )}
+                                <div className="flex gap-2">
+                                    <button 
+                                        onClick={handleExportPDF}
+                                        className="flex items-center gap-2 bg-red-50 text-red-600 hover:bg-red-100 px-3 py-2 rounded-lg text-sm font-bold transition-colors"
+                                        title="Export Filtered List to PDF"
+                                    >
+                                        <FaFilePdf /> PDF
+                                    </button>
+                                    <button 
+                                        onClick={handleExportExcel}
+                                        className="flex items-center gap-2 bg-green-50 text-green-600 hover:bg-green-100 px-3 py-2 rounded-lg text-sm font-bold transition-colors"
+                                        title="Export Filtered List to Excel"
+                                    >
+                                        <FaFileExcel /> Excel
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     {activeTab === 'stats' && (
                         <>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                                {cards.map((card, index) => (
+                                {cards.filter(card => hasAccess(card.tab)).map((card, index) => (
                                     <div
                                         key={index}
                                         onClick={() => card.tab && setActiveTab(card.tab)}
@@ -407,26 +683,36 @@ const AdminDashboard = () => {
                             </div>
 
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                                    <h3 className="font-bold text-gray-800 mb-4">Quick Stats</h3>
-                                    <div className="space-y-4">
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-gray-600">Pending Experiences</span>
-                                            <span className="font-bold text-orange-500">{pendingExperiences.length}</span>
-                                        </div>
-                                        <div className="w-full bg-gray-100 rounded-full h-2">
-                                            <div className="bg-orange-500 h-2 rounded-full" style={{ width: `${Math.min(pendingExperiences.length * 10, 100)}%` }}></div>
-                                        </div>
+                                {(hasAccess('content') || hasAccess('pending')) && (
+                                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                                        <h3 className="font-bold text-gray-800 mb-4">Quick Stats</h3>
+                                        <div className="space-y-4">
+                                            {hasAccess('content') && (
+                                                <>
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="text-gray-600">Pending Experiences</span>
+                                                        <span className="font-bold text-orange-500">{pendingExperiences.length}</span>
+                                                    </div>
+                                                    <div className="w-full bg-gray-100 rounded-full h-2">
+                                                        <div className="bg-orange-500 h-2 rounded-full" style={{ width: `${Math.min(pendingExperiences.length * 10, 100)}%` }}></div>
+                                                    </div>
+                                                </>
+                                            )}
 
-                                        <div className="flex justify-between items-center pt-2">
-                                            <span className="text-gray-600">Pending Vendors</span>
-                                            <span className="font-bold text-blue-500">{pendingVendorsCount}</span>
-                                        </div>
-                                        <div className="w-full bg-gray-100 rounded-full h-2">
-                                            <div className="bg-blue-500 h-2 rounded-full" style={{ width: `${Math.min(pendingVendorsCount * 10, 100)}%` }}></div>
+                                            {hasAccess('pending') && (
+                                                <>
+                                                    <div className="flex justify-between items-center pt-2">
+                                                        <span className="text-gray-600">Pending Vendors</span>
+                                                        <span className="font-bold text-blue-500">{pendingVendorsCount}</span>
+                                                    </div>
+                                                    <div className="w-full bg-gray-100 rounded-full h-2">
+                                                        <div className="bg-blue-500 h-2 rounded-full" style={{ width: `${Math.min(pendingVendorsCount * 10, 100)}%` }}></div>
+                                                    </div>
+                                                </>
+                                            )}
                                         </div>
                                     </div>
-                                </div>
+                                )}
                             </div>
                         </>
                     )}
@@ -445,7 +731,7 @@ const AdminDashboard = () => {
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">
                                     {activeTab === 'content' ? (
-                                        pendingExperiences.length > 0 ? pendingExperiences.map(e => (
+                                        getFilteredExperiences(pendingExperiences).length > 0 ? getFilteredExperiences(pendingExperiences).map(e => (
                                             <tr key={e._id} className="hover:bg-gray-50 transition-colors">
                                                 <td className="px-6 py-4">
                                                     <div className="font-bold text-gray-900">{e.title}</div>
@@ -469,7 +755,7 @@ const AdminDashboard = () => {
                                             <tr><td colSpan="5" className="px-6 py-12 text-center text-gray-500">No pending experiences.</td></tr>
                                         )
                                     ) : activeTab === 'rejected' ? (
-                                        rejectedExperiences.length > 0 ? rejectedExperiences.map(e => (
+                                        getFilteredExperiences(rejectedExperiences).length > 0 ? getFilteredExperiences(rejectedExperiences).map(e => (
                                             <tr key={e._id} className="hover:bg-gray-50 transition-colors">
                                                 <td className="px-6 py-4">
                                                     <div className="font-bold text-gray-900">{e.title}</div>
@@ -493,7 +779,7 @@ const AdminDashboard = () => {
                                             <tr><td colSpan="5" className="px-6 py-12 text-center text-gray-500">No rejected experiences.</td></tr>
                                         )
                                     ) : (
-                                        experiences.filter(e => e.status === 'approved').length > 0 ? experiences.filter(e => e.status === 'approved').map(e => (
+                                        getFilteredExperiences(activeExperiences).length > 0 ? getFilteredExperiences(activeExperiences).map(e => (
                                             <tr key={e._id} className="hover:bg-gray-50 transition-colors">
                                                 <td className="px-6 py-4">
                                                     <div className="font-bold text-gray-900">{e.title}</div>
@@ -522,7 +808,13 @@ const AdminDashboard = () => {
                         </div>
                     )}
 
-                    {activeTab === 'users' && (
+                        {/* Admins Table Tab */}
+                        {activeTab === 'admins' && isSuperAdmin && (
+                            <AdminManagement />
+                        )}
+                        
+                        {/* Users Table Tab */}
+                        {activeTab === 'users' && (
                         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                             <div className="overflow-x-auto">
                                 <table className="w-full text-left">
@@ -536,12 +828,12 @@ const AdminDashboard = () => {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-100">
-                                        {users.map(u => (
+                                        {getFilteredUsers().map(u => (
                                             <tr key={u._id} className="hover:bg-gray-50 transition-colors">
                                                 <td className="px-6 py-4">
                                                     <div
                                                         className="flex items-center gap-3 cursor-pointer group"
-                                                        onClick={() => navigate(`/admin/user/${u._id}`)}
+                                                        onClick={() => navigate(u.role === 'vendor' ? `/admin/vendor/${u._id}` : `/admin/user/${u._id}`)}
                                                     >
                                                         <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-lg group-hover:bg-blue-200 transition-colors">
                                                             {u.name.charAt(0).toUpperCase()}
@@ -577,7 +869,7 @@ const AdminDashboard = () => {
                                                 </td>
                                             </tr>
                                         ))}
-                                        {users.length === 0 && <tr><td colSpan="5" className="px-6 py-12 text-center text-gray-500">No users found.</td></tr>}
+                                        {getFilteredUsers().length === 0 && <tr><td colSpan="5" className="px-6 py-12 text-center text-gray-500">No users found.</td></tr>}
                                     </tbody>
                                 </table>
                             </div>
@@ -599,7 +891,7 @@ const AdminDashboard = () => {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-100">
-                                        {bookings.map(b => (
+                                        {getFilteredBookings().map(b => (
                                             <tr key={b._id} className="hover:bg-gray-50 transition-colors">
                                                 <td className="px-6 py-4 text-xs font-mono text-gray-500">#{b._id.slice(-6)}</td>
                                                 <td className="px-6 py-4">
@@ -636,7 +928,7 @@ const AdminDashboard = () => {
                                                 </td>
                                             </tr>
                                         ))}
-                                        {bookings.length === 0 && <tr><td colSpan="6" className="px-6 py-12 text-center text-gray-500">No bookings on record.</td></tr>}
+                                        {getFilteredBookings().length === 0 && <tr><td colSpan="6" className="px-6 py-12 text-center text-gray-500">No bookings on record.</td></tr>}
                                     </tbody>
                                 </table>
                             </div>
@@ -933,7 +1225,7 @@ const AdminDashboard = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100">
-                                    {filteredVendors.length > 0 ? filteredVendors.map(v => (
+                                    {getFilteredVendors(filteredVendors).length > 0 ? getFilteredVendors(filteredVendors).map(v => (
                                         <tr key={v._id} className="hover:bg-gray-50 transition-colors">
                                             <td className="px-6 py-4">
                                                 <div className="font-bold text-gray-900">{v.name}</div>
@@ -953,9 +1245,9 @@ const AdminDashboard = () => {
                                                 )}
                                             </td>
                                             <td className="px-6 py-4 text-right">
-                                                <a href={`/admin/id/${v._id}`} className="inline-block bg-gray-900 text-white text-xs font-bold px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors">
+                                                <Link to={`/admin/vendor/${v._id}`} className="inline-block bg-gray-900 text-white text-xs font-bold px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors">
                                                     Manage
-                                                </a>
+                                                </Link>
                                             </td>
                                         </tr>
                                     )) : (
