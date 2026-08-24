@@ -126,7 +126,7 @@ const VendorDashboard = () => {
     const activeListings = experiences.length;
 
     const vendorCurrency = experiences[0]?.bookingOptions?.[0]?.availabilityAndPricing?.currency || experiences[0]?.currency || 'USD';
-    const currencySymbol = { 'USD': '$', 'EUR': '€', 'GBP': '£', 'INR': '₹', 'AED': 'AED ', 'JPY': '¥' }[vendorCurrency] || '$';
+    const currencySymbol = { 'USD': '$', 'EUR': '€', 'GBP': '£', 'INR': '₹', 'AED': 'AED ', 'JPY': '¥' }[vendorCurrency] || (vendorCurrency ? `${vendorCurrency} ` : '');
     
     const formatCurrency = (amount) => {
         return `${currencySymbol}${amount.toLocaleString()}`;
@@ -341,7 +341,7 @@ const VendorDashboard = () => {
                                                     </td>
                                                     <td className="px-6 py-4 text-gray-700">{booking.slots} Person(s)</td>
                                                     <td className="px-6 py-4 font-bold text-gray-900">
-                                                        {{ 'USD': '$', 'EUR': '€', 'GBP': '£', 'INR': '₹', 'AED': 'AED ', 'JPY': '¥' }[booking.experience?.bookingOptions?.[0]?.availabilityAndPricing?.currency || booking.experience?.currency] || '$'}{booking.totalPrice}
+                                                        {{ 'USD': '$', 'EUR': '€', 'GBP': '£', 'INR': '₹', 'AED': 'AED ', 'JPY': '¥' }[booking.experience?.bookingOptions?.[0]?.availabilityAndPricing?.currency || booking.experience?.currency] || ((booking.experience?.bookingOptions?.[0]?.availabilityAndPricing?.currency || booking.experience?.currency) ? `${(booking.experience?.bookingOptions?.[0]?.availabilityAndPricing?.currency || booking.experience?.currency)} ` : '')}{booking.totalPrice}
                                                     </td>
                                                     <td className="px-6 py-4">
                                                         <span className={`px-2 py-1 rounded-full text-xs font-bold uppercase ${getStatusColor(booking.status)}`}>
@@ -372,7 +372,7 @@ const VendorDashboard = () => {
                                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                                     />
                                     <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-bold shadow-sm">
-                                        {{ 'USD': '$', 'EUR': '€', 'GBP': '£', 'INR': '₹', 'AED': 'AED ', 'JPY': '¥' }[exp.bookingOptions?.[0]?.availabilityAndPricing?.currency || exp.currency] || '$'}{getBasePrice(exp)}
+                                        {{ 'USD': '$', 'EUR': '€', 'GBP': '£', 'INR': '₹', 'AED': 'AED ', 'JPY': '¥' }[exp.bookingOptions?.[0]?.availabilityAndPricing?.currency || exp.currency] || ((exp.bookingOptions?.[0]?.availabilityAndPricing?.currency || exp.currency) ? `${(exp.bookingOptions?.[0]?.availabilityAndPricing?.currency || exp.currency)} ` : '')}{getBasePrice(exp)}
                                     </div>
                                     <div className="absolute top-4 left-4 bg-black/50 backdrop-blur-sm text-white px-3 py-1 rounded-full text-xs font-bold">
                                         {exp.category}
@@ -478,7 +478,7 @@ const VendorDashboard = () => {
                                             </td>
                                             <td className="px-6 py-4 text-gray-700">{booking.slots} Person(s)</td>
                                             <td className="px-6 py-4 font-bold text-gray-900">
-                                                {{ 'USD': '$', 'EUR': '€', 'GBP': '£', 'INR': '₹', 'AED': 'AED ', 'JPY': '¥' }[booking.experience?.bookingOptions?.[0]?.availabilityAndPricing?.currency || booking.experience?.currency] || '$'}{booking.totalPrice}
+                                                {{ 'USD': '$', 'EUR': '€', 'GBP': '£', 'INR': '₹', 'AED': 'AED ', 'JPY': '¥' }[booking.experience?.bookingOptions?.[0]?.availabilityAndPricing?.currency || booking.experience?.currency] || ((booking.experience?.bookingOptions?.[0]?.availabilityAndPricing?.currency || booking.experience?.currency) ? `${(booking.experience?.bookingOptions?.[0]?.availabilityAndPricing?.currency || booking.experience?.currency)} ` : '')}{booking.totalPrice}
                                             </td>
                                             <td className="px-6 py-4">
                                                 <span className={`px-2 py-1 rounded-full text-xs font-bold uppercase ${getStatusColor(booking.status)}`}>

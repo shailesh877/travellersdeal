@@ -18,6 +18,10 @@ const appSettingsSchema = new mongoose.Schema({
     feedbackUrl: {
         type: String,
         default: ''
+    },
+    allowedCurrencies: {
+        type: [String],
+        default: ['USD', 'EUR', 'GBP', 'AED', 'INR', 'AUD', 'CAD']
     }
 }, { timestamps: true });
 

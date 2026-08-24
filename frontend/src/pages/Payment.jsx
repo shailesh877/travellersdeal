@@ -32,7 +32,7 @@ const Payment = () => {
 
     const currencySymbol = {
         'USD': '$', 'EUR': '€', 'GBP': '£', 'INR': '₹', 'AED': 'AED ', 'JPY': '¥'
-    }[currency] || '$';
+    }[currency] || (currency ? `${currency} ` : '');
 
     const originalTotal = Math.round(amount * 1.18);
     const discount = originalTotal - amount;

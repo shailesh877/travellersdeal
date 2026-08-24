@@ -14,7 +14,8 @@ const PERMISSIONS_LIST = [
     { id: 'verified', label: 'Active Vendors' },
     { id: 'homepage', label: 'Homepage Sections' },
     { id: 'applinks', label: 'App Store Links' },
-    { id: 'testimonials', label: 'Testimonials' }
+    { id: 'testimonials', label: 'Testimonials' },
+    { id: 'listing-rules', label: 'Listing Rules' }
 ];
 
 const AdminManagement = () => {

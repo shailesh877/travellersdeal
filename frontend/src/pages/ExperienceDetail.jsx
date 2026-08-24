@@ -319,7 +319,7 @@ const ExperienceDetail = () => {
 
     const currencySymbol = {
         'USD': '$', 'EUR': '€', 'GBP': '£', 'INR': '₹', 'AED': 'AED ', 'JPY': '¥'
-    }[experience.currency] || '$';
+    }[experience.currency] || (experience.currency ? `${experience.currency} ` : '');
 
     // Calculate rating from reviews explicitly if backend doesn't sync perfectly immediately
     const displayRating = reviews.length > 0
@@ -568,7 +568,7 @@ const ExperienceDetail = () => {
                                                 <div>
                                                     <div className="text-xs text-gray-500 font-medium">Total price</div>
                                                     <div className="font-extrabold text-xl text-[#1a2b49]">
-                                                        {pricing?.currency || experience.currency || '$'}{total}
+                                                        {pricing?.currency || experience.currency || ''} {total}
                                                     </div>
                                                 </div>
                                                 <button
@@ -606,7 +606,7 @@ const ExperienceDetail = () => {
                                                         {experience.bookingOptions[selectedOptionIndex].availabilityAndPricing.pricingTiers.map((tier, idx) => (
                                                             <li key={idx} className="flex justify-between w-full max-w-[240px] bg-white border border-gray-200 px-3 py-2 rounded-lg">
                                                                 <span className="font-medium">{tier.title} <span className="text-xs text-gray-400">({tier.minAge}-{tier.maxAge} yrs)</span></span>
-                                                                <span className="font-bold text-gray-900">{experience.bookingOptions[selectedOptionIndex].availabilityAndPricing.currency || experience.currency || '$'} {tier.price}</span>
+                                                                <span className="font-bold text-gray-900">{experience.bookingOptions[selectedOptionIndex].availabilityAndPricing.currency || experience.currency || ''} {tier.price}</span>
                                                             </li>
                                                         ))}
                                                     </ul>

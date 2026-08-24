@@ -434,10 +434,18 @@ const getAppSettings = async (req, res) => {
 // @access  Private/Admin
 const updateAppSettings = async (req, res) => {
     try {
-        const { playStoreUrl, appStoreUrl, feedbackUrl } = req.body;
+        const { playStoreUrl, appStoreUrl, feedbackUrl, allowedCurrencies } = req.body;
+        
+        // Build the update object dynamically so we don't overwrite with undefined
+        const updateData = {};
+        if (playStoreUrl !== undefined) updateData.playStoreUrl = playStoreUrl;
+        if (appStoreUrl !== undefined) updateData.appStoreUrl = appStoreUrl;
+        if (feedbackUrl !== undefined) updateData.feedbackUrl = feedbackUrl;
+        if (allowedCurrencies !== undefined) updateData.allowedCurrencies = allowedCurrencies;
+
         const settings = await AppSettings.findOneAndUpdate(
             { key: 'global' },
-            { playStoreUrl, appStoreUrl, feedbackUrl },
+            updateData,
             { new: true, upsert: true }
         );
         res.json(settings);

@@ -222,7 +222,7 @@ const UserProfile = () => {
                                                         </div>
                                                         <div className="flex justify-between items-start mb-2">
                                                             <h4 className="text-xl font-bold text-gray-900 line-clamp-2">{booking.experience?.title}</h4>
-                                                            <span className="text-lg font-bold text-primary whitespace-nowrap">{{ 'USD': '$', 'EUR': '€', 'GBP': '£', 'INR': '₹', 'AED': 'AED ', 'JPY': '¥' }[booking.currency || booking.experience?.bookingOptions?.[0]?.availabilityAndPricing?.currency || booking.experience?.currency] || '$'}{booking.totalPrice}</span>
+                                                            <span className="text-lg font-bold text-primary whitespace-nowrap">{{ 'USD': '$', 'EUR': '€', 'GBP': '£', 'INR': '₹', 'AED': 'AED ', 'JPY': '¥' }[booking.currency || booking.experience?.bookingOptions?.[0]?.availabilityAndPricing?.currency || booking.experience?.currency] || ((booking.currency || booking.experience?.bookingOptions?.[0]?.availabilityAndPricing?.currency || booking.experience?.currency) ? `${(booking.currency || booking.experience?.bookingOptions?.[0]?.availabilityAndPricing?.currency || booking.experience?.currency)} ` : '')}{booking.totalPrice}</span>
                                                         </div>
                                                         <div className="space-y-2 mb-4">
                                                             <div className="flex items-center gap-2 text-sm text-gray-600">
@@ -329,7 +329,7 @@ const UserProfile = () => {
                                                     <div className="flex items-center justify-between">
                                                         <span className="text-xs text-gray-400">{exp.duration}</span>
                                                         <span className="font-bold text-gray-900">
-                                                            {{ 'USD': '$', 'EUR': '€', 'GBP': '£', 'INR': '₹', 'AED': 'AED ', 'JPY': '¥' }[exp.bookingOptions?.[0]?.availabilityAndPricing?.currency || exp.currency] || '₹'}{getBasePrice(exp)}
+                                                            {{ 'USD': '$', 'EUR': '€', 'GBP': '£', 'INR': '₹', 'AED': 'AED ', 'JPY': '¥' }[exp.bookingOptions?.[0]?.availabilityAndPricing?.currency || exp.currency] || ((exp.bookingOptions?.[0]?.availabilityAndPricing?.currency || exp.currency) ? `${(exp.bookingOptions?.[0]?.availabilityAndPricing?.currency || exp.currency)} ` : '')}{getBasePrice(exp)}
                                                         </span>
                                                     </div>
                                                 </div>
@@ -412,15 +412,15 @@ const UserProfile = () => {
                             <div className="border-t border-gray-100 pt-4 space-y-2">
                                 <div className="flex justify-between items-center">
                                     <span className="text-gray-600 font-medium">Subtotal</span>
-                                    <span className="font-semibold text-gray-900">{{ 'USD': '$', 'EUR': '€', 'GBP': '£', 'INR': '₹', 'AED': 'AED ', 'JPY': '¥' }[selectedBooking.currency || selectedBooking.experience?.bookingOptions?.[0]?.availabilityAndPricing?.currency || selectedBooking.experience?.currency] || '$'}{(selectedBooking.totalPrice / 1.18).toFixed(2)}</span>
+                                    <span className="font-semibold text-gray-900">{{ 'USD': '$', 'EUR': '€', 'GBP': '£', 'INR': '₹', 'AED': 'AED ', 'JPY': '¥' }[selectedBooking.currency || selectedBooking.experience?.bookingOptions?.[0]?.availabilityAndPricing?.currency || selectedBooking.experience?.currency] || ((selectedBooking.currency || selectedBooking.experience?.bookingOptions?.[0]?.availabilityAndPricing?.currency || selectedBooking.experience?.currency) ? `${(selectedBooking.currency || selectedBooking.experience?.bookingOptions?.[0]?.availabilityAndPricing?.currency || selectedBooking.experience?.currency)} ` : '')}{(selectedBooking.totalPrice / 1.18).toFixed(2)}</span>
                                 </div>
                                 <div className="flex justify-between items-center">
                                     <span className="text-gray-600 font-medium">GST (18%)</span>
-                                    <span className="font-semibold text-gray-900">{{ 'USD': '$', 'EUR': '€', 'GBP': '£', 'INR': '₹', 'AED': 'AED ', 'JPY': '¥' }[selectedBooking.currency || selectedBooking.experience?.bookingOptions?.[0]?.availabilityAndPricing?.currency || selectedBooking.experience?.currency] || '$'}{(selectedBooking.totalPrice - (selectedBooking.totalPrice / 1.18)).toFixed(2)}</span>
+                                    <span className="font-semibold text-gray-900">{{ 'USD': '$', 'EUR': '€', 'GBP': '£', 'INR': '₹', 'AED': 'AED ', 'JPY': '¥' }[selectedBooking.currency || selectedBooking.experience?.bookingOptions?.[0]?.availabilityAndPricing?.currency || selectedBooking.experience?.currency] || ((selectedBooking.currency || selectedBooking.experience?.bookingOptions?.[0]?.availabilityAndPricing?.currency || selectedBooking.experience?.currency) ? `${(selectedBooking.currency || selectedBooking.experience?.bookingOptions?.[0]?.availabilityAndPricing?.currency || selectedBooking.experience?.currency)} ` : '')}{(selectedBooking.totalPrice - (selectedBooking.totalPrice / 1.18)).toFixed(2)}</span>
                                 </div>
                                 <div className="border-t border-gray-100 pt-2 mt-2 flex justify-between items-center">
                                     <span className="text-gray-900 font-bold">Total Amount Paid</span>
-                                    <span className="text-2xl font-bold text-primary">{{ 'USD': '$', 'EUR': '€', 'GBP': '£', 'INR': '₹', 'AED': 'AED ', 'JPY': '¥' }[selectedBooking.currency || selectedBooking.experience?.bookingOptions?.[0]?.availabilityAndPricing?.currency || selectedBooking.experience?.currency] || '$'}{selectedBooking.totalPrice}</span>
+                                    <span className="text-2xl font-bold text-primary">{{ 'USD': '$', 'EUR': '€', 'GBP': '£', 'INR': '₹', 'AED': 'AED ', 'JPY': '¥' }[selectedBooking.currency || selectedBooking.experience?.bookingOptions?.[0]?.availabilityAndPricing?.currency || selectedBooking.experience?.currency] || ((selectedBooking.currency || selectedBooking.experience?.bookingOptions?.[0]?.availabilityAndPricing?.currency || selectedBooking.experience?.currency) ? `${(selectedBooking.currency || selectedBooking.experience?.bookingOptions?.[0]?.availabilityAndPricing?.currency || selectedBooking.experience?.currency)} ` : '')}{selectedBooking.totalPrice}</span>
                                 </div>
                             </div>
                         </div>

@@ -113,6 +113,17 @@ const AddExperience = () => {
     const [mainInfoOpen, setMainInfoOpen] = useState(true);
     const [inclusionsOpen, setInclusionsOpen] = useState(false);
     const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+    const [globalCurrencies, setGlobalCurrencies] = useState(['USD', 'EUR', 'GBP', 'AED', 'INR', 'AUD', 'CAD']);
+
+    useEffect(() => {
+        axios.get(`${API_URL}/admin/settings`)
+            .then(res => {
+                if (res.data?.allowedCurrencies?.length > 0) {
+                    setGlobalCurrencies(res.data.allowedCurrencies);
+                }
+            })
+            .catch(err => console.error('Failed to fetch settings:', err));
+    }, []);
 
     useEffect(() => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -2638,7 +2649,7 @@ const AddExperience = () => {
                                                                     <div className="flex flex-wrap gap-2 mt-1">
                                                                         {opt.pricingTiers.map((tier, i) => (
                                                                             <span key={i} className="inline-flex items-center px-2 py-0.5 rounded bg-gray-50 border border-gray-100 text-[12px] font-medium text-gray-600">
-                                                                                {tier.title}: {opt.currency || '$'}{tier.price || 0}
+                                                                                {tier.title}: {opt.currency ? opt.currency + ' ' : ''}{tier.price || 0}
                                                                             </span>
                                                                         ))}
                                                                     </div>
@@ -4148,13 +4159,9 @@ const AddExperience = () => {
                                                                             setFormData(p => ({ ...p, currency: val }));
                                                                         }}
                                                                     >
-                                                                        <option value="USD">USD ($)</option>
-                                                                        <option value="EUR">EUR (€)</option>
-                                                                        <option value="GBP">GBP (£)</option>
-                                                                        <option value="AED">AED (د.إ)</option>
-                                                                        <option value="INR">INR (₹)</option>
-                                                                        <option value="AUD">AUD (A$)</option>
-                                                                        <option value="CAD">CAD (C$)</option>
+                                                                        {globalCurrencies.map(curr => (
+                                                                            <option key={curr} value={curr}>{curr}</option>
+                                                                        ))}
                                                                     </select>
                                                                 </div>
                                                             </div>
@@ -4163,12 +4170,12 @@ const AddExperience = () => {
                                                                     <span className="text-[15px] font-medium text-[#1A2B49]">Price per person:</span>
                                                                     <div className="relative w-full sm:w-auto">
                                                                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold">
-                                                                            {{ 'USD': '$', 'EUR': '€', 'GBP': '£', 'AED': 'د.إ', 'INR': '₹', 'AUD': 'A$', 'CAD': 'C$' }[tempOption.currency || formData.currency || 'USD'] || '$'}
+                                                                            {{ 'USD': '$', 'EUR': '€', 'GBP': '£', 'AED': 'د.إ', 'INR': '₹', 'AUD': 'A$', 'CAD': 'C$' }[tempOption.currency || formData.currency || 'USD'] || (tempOption.currency || formData.currency || 'USD')}
                                                                         </span>
                                                                         <input
                                                                             type="number"
                                                                             min="0"
-                                                                            className="w-full sm:w-[120px] border border-gray-300 rounded-lg p-3 pl-8 outline-none focus:border-[#0071EB] text-[15px] font-bold bg-white"
+                                                                            className="w-full sm:w-[130px] border border-gray-300 rounded-lg p-3 pl-12 outline-none focus:border-[#0071EB] text-[15px] font-bold bg-white"
                                                                             value={tempOption.price}
                                                                             onChange={(e) => setTempOption(p => ({ ...p, price: e.target.value }))}
                                                                         />
@@ -4184,12 +4191,12 @@ const AddExperience = () => {
                                                                             </div>
                                                                             <div className="relative w-full sm:w-auto">
                                                                                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold">
-                                                                                    {{ 'USD': '$', 'EUR': '€', 'GBP': '£', 'AED': 'د.إ', 'INR': '₹', 'AUD': 'A$', 'CAD': 'C$' }[tempOption.currency || formData.currency || 'USD'] || '$'}
+                                                                                    {{ 'USD': '$', 'EUR': '€', 'GBP': '£', 'AED': 'د.إ', 'INR': '₹', 'AUD': 'A$', 'CAD': 'C$' }[tempOption.currency || formData.currency || 'USD'] || (tempOption.currency || formData.currency || 'USD')}
                                                                                 </span>
                                                                                 <input
                                                                                     type="number"
                                                                                     min="0"
-                                                                                    className="w-full sm:w-[120px] border border-gray-300 rounded-lg p-3 pl-8 outline-none focus:border-[#0071EB] text-[15px] font-bold bg-white"
+                                                                                    className="w-full sm:w-[130px] border border-gray-300 rounded-lg p-3 pl-12 outline-none focus:border-[#0071EB] text-[15px] font-bold bg-white"
                                                                                     value={tier.price || ''}
                                                                                     onChange={(e) => {
                                                                                         setTempOption(p => ({

@@ -3,7 +3,7 @@ import {
     FaUser, FaMoneyBillWave, FaMapMarkedAlt, FaCalendarCheck,
     FaChartLine, FaStore, FaUserClock, FaCheckCircle, FaTimesCircle,
     FaSignOutAlt, FaHome, FaClipboardList, FaImage, FaPlus, FaTrash, FaEdit, FaStar,
-    FaFilePdf, FaFileExcel, FaUserShield, FaCheck
+    FaFilePdf, FaFileExcel, FaUserShield, FaCheck, FaSyncAlt
 } from 'react-icons/fa';
 import axios from 'axios';
 import jsPDF from 'jspdf';
@@ -59,6 +59,7 @@ const AdminDashboard = () => {
         setFilterOption('all');
     }, [activeTab]);
     const [savedBadge, setSavedBadge] = useState('');
+    const [refreshKey, setRefreshKey] = useState(0);
 
     // Homepage Content State — draft (local edits) + committed (backend)
     const [destinations, setDestinations] = useState([]);
@@ -72,6 +73,9 @@ const AdminDashboard = () => {
     const [appLinks, setAppLinks] = useState({ playStoreUrl: '', appStoreUrl: '', feedbackUrl: '' });
     const [savingAppLinks, setSavingAppLinks] = useState(false);
     const [appLinksSaved, setAppLinksSaved] = useState(false);
+
+    const [allowedCurrencies, setAllowedCurrencies] = useState(['USD', 'EUR', 'GBP', 'AED', 'INR', 'AUD', 'CAD']);
+    const [newCurrency, setNewCurrency] = useState('');
 
     const getAuthConfig = () => ({
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
@@ -241,7 +245,7 @@ const AdminDashboard = () => {
         };
 
         fetchAdminData();
-    }, []);
+    }, [refreshKey]);
 
     // Separate effect — homepage sections are public, always load independently
     useEffect(() => {
@@ -263,10 +267,13 @@ const AdminDashboard = () => {
         fetchHomepageSections();
     }, []);
 
-    // Fetch App Links
+    // Fetch App Links & Settings
     useEffect(() => {
         axios.get(`${API_URL}/admin/settings`)
-            .then(r => setAppLinks({ playStoreUrl: r.data.playStoreUrl || '', appStoreUrl: r.data.appStoreUrl || '', feedbackUrl: r.data.feedbackUrl || '' }))
+            .then(r => {
+                setAppLinks({ playStoreUrl: r.data.playStoreUrl || '', appStoreUrl: r.data.appStoreUrl || '', feedbackUrl: r.data.feedbackUrl || '' });
+                if (r.data.allowedCurrencies) setAllowedCurrencies(r.data.allowedCurrencies);
+            })
             .catch(() => { });
     }, []);
 
@@ -281,6 +288,32 @@ const AdminDashboard = () => {
         } finally {
             setSavingAppLinks(false);
         }
+    };
+
+    const saveListingRules = async () => {
+        try {
+            setSavingSection('listingRules');
+            await axios.put(`${API_URL}/admin/settings`, { allowedCurrencies }, getAuthConfig());
+            setSavedBadge('listingRules');
+            setTimeout(() => setSavedBadge(''), 2500);
+        } catch (err) {
+            alert('Failed to save listing rules: ' + (err.response?.data?.message || err.message));
+        } finally {
+            setSavingSection('');
+        }
+    };
+
+    const handleAddCurrency = (e) => {
+        e.preventDefault();
+        const code = newCurrency.trim().toUpperCase();
+        if (code && !allowedCurrencies.includes(code)) {
+            setAllowedCurrencies([...allowedCurrencies, code]);
+            setNewCurrency('');
+        }
+    };
+
+    const handleRemoveCurrency = (code) => {
+        setAllowedCurrencies(allowedCurrencies.filter(c => c !== code));
     };
 
     const cards = [
@@ -543,11 +576,12 @@ const AdminDashboard = () => {
                     {hasAccess('pending') && <NavItem id="pending" icon={FaUserClock} label="Pending Vendors" count={pendingVendorsCount} />}
                     {hasAccess('verified') && <NavItem id="verified" icon={FaStore} label="Active Vendors" />}
 
-                    {(hasAccess('homepage') || hasAccess('applinks') || hasAccess('testimonials')) && (
+                    {(hasAccess('homepage') || hasAccess('applinks') || hasAccess('testimonials') || hasAccess('listing-rules')) && (
                         <div className="px-6 pb-2 pt-6 text-xs font-semibold text-gray-400 uppercase tracking-wider">Content</div>
                     )}
                     {hasAccess('homepage') && <NavItem id="homepage" icon={FaImage} label="Homepage Sections" />}
                     {hasAccess('applinks') && <NavItem id="applinks" icon={FaStore} label="App Store Links" />}
+                    {hasAccess('listing-rules') && <NavItem id="listing-rules" icon={FaClipboardList} label="Listing Rules" />}
                     {hasAccess('testimonials') && (
                         <button
                             onClick={() => navigate('/admin/testimonials')}
@@ -599,15 +633,24 @@ const AdminDashboard = () => {
                                 {activeTab === 'pending' && 'Vendor Approval Queue'}
                                 {activeTab === 'verified' && 'Active Vendor Partners'}
                                 {activeTab === 'applinks' && '📱 App Store Links'}
+                                {activeTab === 'listing-rules' && '📝 Listing Rules'}
                                 {activeTab === 'admins' && 'Manage Administrators'}
                             </h1>
                             <p className="text-gray-500 text-sm mt-1">
                                 Welcome back, Admin. Here is what is happening today.
                             </p>
                         </div>
-                        {['users', 'bookings', 'content', 'rejected', 'active-experiences', 'pending', 'verified'].includes(activeTab) && (
-                            <div className="flex flex-col sm:flex-row gap-3">
-                                <input 
+                        <div className="flex flex-col sm:flex-row gap-3 items-center">
+                            <button 
+                                onClick={() => { setLoading(true); setRefreshKey(k => k + 1); }} 
+                                disabled={loading}
+                                className="flex items-center gap-2 bg-blue-50 text-blue-600 px-4 py-2 rounded-lg font-semibold hover:bg-blue-100 transition-colors disabled:opacity-50"
+                            >
+                                <FaSyncAlt className={loading ? "animate-spin" : ""} /> Refresh Data
+                            </button>
+                            {['users', 'bookings', 'content', 'rejected', 'active-experiences', 'pending', 'verified'].includes(activeTab) && (
+                                <div className="flex flex-col sm:flex-row gap-3">
+                                    <input 
                                     type="text" 
                                     placeholder="Search..." 
                                     value={searchQuery}
@@ -660,6 +703,7 @@ const AdminDashboard = () => {
                                 </div>
                             </div>
                         )}
+                        </div>
                     </div>
 
                     {activeTab === 'stats' && (
@@ -741,7 +785,7 @@ const AdminDashboard = () => {
                                                     <div className="font-medium text-gray-900">{e.vendor?.name}</div>
                                                     <div className="text-xs text-gray-500">{e.vendor?.email}</div>
                                                 </td>
-                                                <td className="px-6 py-4 font-bold text-gray-900">{e.bookingOptions?.[0]?.availabilityAndPricing?.currency || e.currency || '$'} {getBasePrice(e)}</td>
+                                                <td className="px-6 py-4 font-bold text-gray-900">{e.bookingOptions?.[0]?.availabilityAndPricing?.currency || e.currency || ''} {getBasePrice(e)}</td>
                                                 <td className="px-6 py-4">
                                                     <span className="bg-orange-100 text-orange-700 text-xs px-2 py-1 rounded-full font-bold uppercase">Pending</span>
                                                 </td>
@@ -765,7 +809,7 @@ const AdminDashboard = () => {
                                                     <div className="font-medium text-gray-900">{e.vendor?.name}</div>
                                                     <div className="text-xs text-gray-500">{e.vendor?.email}</div>
                                                 </td>
-                                                <td className="px-6 py-4 font-bold text-gray-900">{e.bookingOptions?.[0]?.availabilityAndPricing?.currency || e.currency || '$'} {getBasePrice(e)}</td>
+                                                <td className="px-6 py-4 font-bold text-gray-900">{e.bookingOptions?.[0]?.availabilityAndPricing?.currency || e.currency || ''} {getBasePrice(e)}</td>
                                                 <td className="px-6 py-4">
                                                     <span className="bg-red-100 text-red-700 text-xs px-2 py-1 rounded-full font-bold uppercase">Rejected</span>
                                                 </td>
@@ -789,7 +833,7 @@ const AdminDashboard = () => {
                                                     <div className="font-medium text-gray-900">{e.vendor?.name}</div>
                                                     <div className="text-xs text-gray-500">{e.vendor?.email}</div>
                                                 </td>
-                                                <td className="px-6 py-4 font-bold text-gray-900">{e.bookingOptions?.[0]?.availabilityAndPricing?.currency || e.currency || '$'} {getBasePrice(e)}</td>
+                                                <td className="px-6 py-4 font-bold text-gray-900">{e.bookingOptions?.[0]?.availabilityAndPricing?.currency || e.currency || ''} {getBasePrice(e)}</td>
                                                 <td className="px-6 py-4">
                                                     <span className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded-full font-bold uppercase">Approved</span>
                                                 </td>
@@ -911,7 +955,7 @@ const AdminDashboard = () => {
                                                     <div className="text-xs font-medium text-gray-600 mt-1">{b.slots} Person(s)</div>
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap">
-                                                    <div className="font-bold text-gray-900">{{ 'USD': '$', 'EUR': '€', 'GBP': '£', 'INR': '₹', 'AED': 'AED ', 'JPY': '¥' }[b.currency || b.experience?.bookingOptions?.[0]?.availabilityAndPricing?.currency || b.experience?.currency || 'USD'] || '$'}{b.totalPrice}</div>
+                                                    <div className="font-bold text-gray-900">{{ 'USD': '$', 'EUR': '€', 'GBP': '£', 'INR': '₹', 'AED': 'AED ', 'JPY': '¥' }[b.currency || b.experience?.bookingOptions?.[0]?.availabilityAndPricing?.currency || b.experience?.currency || 'USD'] || ((b.currency || b.experience?.bookingOptions?.[0]?.availabilityAndPricing?.currency || b.experience?.currency || 'USD') ? `${(b.currency || b.experience?.bookingOptions?.[0]?.availabilityAndPricing?.currency || b.experience?.currency || 'USD')} ` : '')}{b.totalPrice}</div>
                                                     <div className="flex items-center gap-1 mt-1">
                                                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${b.paymentStatus === 'paid' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                                                             {b.paymentStatus}
@@ -1255,6 +1299,50 @@ const AdminDashboard = () => {
                                     )}
                                 </tbody>
                             </table>
+                        </div>
+                    )}
+
+                    {activeTab === 'listing-rules' && (
+                        <div className="max-w-2xl">
+                            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+                                <div className="flex items-center justify-between mb-6">
+                                    <div>
+                                        <h3 className="font-bold text-gray-900 text-lg">Listing Rules (Currencies)</h3>
+                                        <p className="text-sm text-gray-500 mt-1">Configure which currencies are available for vendors when setting prices.</p>
+                                    </div>
+                                    {savedBadge === 'listingRules' && <span className="text-green-600 font-semibold text-sm">✓ Saved!</span>}
+                                </div>
+                                <div className="space-y-4">
+                                    <form onSubmit={handleAddCurrency} className="flex gap-3">
+                                        <input 
+                                            type="text" 
+                                            value={newCurrency}
+                                            onChange={e => setNewCurrency(e.target.value)}
+                                            placeholder="Code (e.g. JPY)"
+                                            maxLength="3"
+                                            className="border border-gray-200 rounded-xl px-4 py-3 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition w-48 uppercase" 
+                                        />
+                                        <button type="submit" className="bg-blue-50 text-blue-600 hover:bg-blue-100 font-bold px-6 py-3 rounded-xl transition-colors">
+                                            Add Currency
+                                        </button>
+                                    </form>
+                                    
+                                    <div className="flex flex-wrap gap-2 mt-4">
+                                        {allowedCurrencies.map(curr => (
+                                            <div key={curr} className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm font-semibold text-gray-700">
+                                                {curr}
+                                                <button onClick={() => handleRemoveCurrency(curr)} className="text-red-500 hover:text-red-700">
+                                                    <FaTimesCircle />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                                <button onClick={saveListingRules} disabled={savingSection === 'listingRules'}
+                                    className="mt-8 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition-colors disabled:opacity-60">
+                                    {savingSection === 'listingRules' ? 'Saving...' : 'Save Changes'}
+                                </button>
+                            </div>
                         </div>
                     )}
                 </div>

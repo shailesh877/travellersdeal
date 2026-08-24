@@ -1,4 +1,5 @@
 export const getCurrencySymbol = (currencyCode: string | undefined): string => {
+    if (!currencyCode) return '';
     const symbols: { [key: string]: string } = {
         'USD': '$',
         'EUR': '€',
@@ -7,7 +8,7 @@ export const getCurrencySymbol = (currencyCode: string | undefined): string => {
         'AED': 'AED ',
         'JPY': '¥',
     };
-    return symbols[currencyCode?.toUpperCase() || 'INR'] || '₹'; 
+    return symbols[currencyCode.toUpperCase()] || `${currencyCode.toUpperCase()} `; 
 };
 
 export const formatPrice = (price: string | number | undefined, currency?: string): string => {

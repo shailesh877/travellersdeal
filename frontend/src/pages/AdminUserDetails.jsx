@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import { API_URL } from '../config/api';
-import { FaArrowLeft, FaCheckCircle, FaBan, FaEnvelope, FaCalendarAlt, FaMapMarkerAlt, FaStar, FaEdit, FaTrash, FaPlus, FaTimes, FaFilePdf, FaFileExcel } from 'react-icons/fa';
+import { FaArrowLeft, FaCheckCircle, FaBan, FaEnvelope, FaCalendarAlt, FaMapMarkerAlt, FaStar, FaEdit, FaTrash, FaPlus, FaTimes, FaFilePdf, FaFileExcel, FaSyncAlt } from 'react-icons/fa';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
@@ -206,9 +206,18 @@ const AdminUserDetails = () => {
     return (
         <div className="min-h-screen bg-gray-50 pt-20 p-8 font-sans">
             <div className="container mx-auto max-w-5xl">
-                <button onClick={() => navigate('/admin')} className="flex items-center gap-2 text-gray-500 hover:text-gray-900 mb-6 font-medium">
-                    <FaArrowLeft /> Back to Dashboard
-                </button>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
+                    <button onClick={() => navigate('/admin')} className="flex items-center gap-2 text-gray-500 hover:text-gray-900 font-medium w-fit">
+                        <FaArrowLeft /> Back to Dashboard
+                    </button>
+                    <button 
+                        onClick={() => { setLoading(true); fetchUserDetails(); }} 
+                        disabled={loading}
+                        className="flex items-center gap-2 bg-blue-50 text-blue-600 px-4 py-2 rounded-lg font-semibold hover:bg-blue-100 transition-colors w-fit disabled:opacity-50"
+                    >
+                        <FaSyncAlt className={loading ? "animate-spin" : ""} /> Refresh Data
+                    </button>
+                </div>
 
                 {/* Header Card */}
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 mb-8 flex flex-col md:flex-row gap-6 md:justify-between items-start">

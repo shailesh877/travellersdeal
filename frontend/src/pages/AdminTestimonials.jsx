@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { API_URL } from '../config/api';
-import { FaPlus, FaEdit, FaTrash, FaStar, FaTimes, FaCheck, FaArrowLeft, FaToggleOn, FaToggleOff } from 'react-icons/fa';
+import { FaPlus, FaEdit, FaTrash, FaStar, FaTimes, FaCheck, FaArrowLeft, FaToggleOn, FaToggleOff, FaSyncAlt } from 'react-icons/fa';
 
 const EMPTY_FORM = { name: '', location: '', rating: 5, comment: '', experienceTitle: '', isVerified: true, isActive: true, displayOrder: 0 };
 
@@ -85,9 +85,18 @@ const AdminTestimonials = () => {
                         <h1 className="text-3xl font-bold text-gray-900">Testimonials</h1>
                         <p className="text-gray-500 mt-1 text-sm">Manage reviews shown on the public homepage. <span className="font-semibold text-primary">Not linked to any user account.</span></p>
                     </div>
-                    <button onClick={openAdd} className="flex items-center gap-2 bg-primary text-white px-5 py-3 rounded-xl font-bold hover:bg-cyan-600 transition-colors shadow-lg shadow-cyan-200">
-                        <FaPlus /> Add Testimonial
-                    </button>
+                    <div className="flex items-center gap-3">
+                        <button 
+                            onClick={fetchTestimonials} 
+                            disabled={loading}
+                            className="flex items-center gap-2 bg-blue-50 text-blue-600 px-5 py-3 rounded-xl font-bold hover:bg-blue-100 transition-colors disabled:opacity-50"
+                        >
+                            <FaSyncAlt className={loading ? "animate-spin" : ""} /> Refresh
+                        </button>
+                        <button onClick={openAdd} className="flex items-center gap-2 bg-primary text-white px-5 py-3 rounded-xl font-bold hover:bg-cyan-600 transition-colors shadow-lg shadow-cyan-200">
+                            <FaPlus /> Add Testimonial
+                        </button>
+                    </div>
                 </div>
 
                 {/* Add / Edit Form */}
